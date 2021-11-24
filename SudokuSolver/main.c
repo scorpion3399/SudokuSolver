@@ -63,7 +63,7 @@ USART_RXC_vect_RETI:
 
 ISR(USART_TXC_vector, ISR_NAKED)
 {
-	uint8_t save_SREG;
+	uint8_t save_sreg;
 
 	save_SREG = SREG; // Storing the value of status register
 
@@ -76,7 +76,7 @@ ISR(USART_TXC_vector, ISR_NAKED)
 	
 USART_TXC_vector_RETI:
 
-	save_SREG = sreg; // Loading the value of status register
+	SREG = save_sreg; // Loading the value of status register
 
 	reti();
 
