@@ -29,7 +29,7 @@ int main(void)
 {
 	initUART();
 	sei();
-	// inf loop
+	// infinite loop
     while (1);
 }
 
