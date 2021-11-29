@@ -21,7 +21,7 @@
 #define pLedDdr DDRA
 
 
-// This must hold:  UINT_MAX + 1 is evenly divisible by BUFSZ
+// This must hold:  UINT8_MAX + 1 is evenly divisible by BUFSZ
 // Otherwise, the producers and consumers do not work correctly.
 uint8_t rcv_buff[BUFSZ];
 volatile uint8_t rcv_prod = 0;
@@ -126,6 +126,10 @@ ISR(TIMER0_COMP_vect, ISR_NAKED)
 	reti();
 }
 
+ISR(TIMER2_COMP_vect, ISR_NAKED)
+{
+	
+}
 
 ISR(USART_RXC_vect, ISR_NAKED)
 {
