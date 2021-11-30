@@ -60,7 +60,7 @@ void clear_table();
 void reset_LED();
 void play_game();
 void send_table();
-void send_response_OK();
+void send_response_OK(uint8_t tx_OK[4]);
 
 
 
@@ -182,15 +182,15 @@ for(uint8_t i = 0;i < 9;i++){
 
 }
 
-void send_response_OK(){
+void send_response_OK(uint8_t tx_OK[4]){
 
-	transm_buff[transm_prod] = 0x4F
+	transm_buff[transm_prod] = tx_OK[0];
 	transm_prod++;
-	transm_buff[transm_prod] = 0x4B
+	transm_buff[transm_prod] = tx_OK[1];
 	transm_prod++;
-	transm_buff[transm_prod] = 0x0D
+	transm_buff[transm_prod] = tx_OK[2];
 	transm_prod++;
-	transm_buff[transm_prod] = 0x0A
+	transm_buff[transm_prod] = tx_OK[3];
 	transm_prod++;
 
 
@@ -236,6 +236,8 @@ ISR(TIMER0_COMP_vect, ISR_NAKED)
 
 ISR(TIMER2_COMP_vect, ISR_NAKED)
 {	
+	uint8_t tx_OK[4] = {0x4F,0x4B,0x0D,0x0A};
+
 	rcv_cons++;
 
 	switch(rcv_buff[rcv_cons]){
@@ -248,7 +250,7 @@ ISR(TIMER2_COMP_vect, ISR_NAKED)
 
 				clear_table();
 				reset_LED();
-				send_response_OK();
+				send_response_OK(uint8_t tx_OK[4]);
 			}
 
 				break;
@@ -259,7 +261,7 @@ ISR(TIMER2_COMP_vect, ISR_NAKED)
 				rcv_cons += 2;
 
 				play_game();
-				send_response_OK();
+				send_response_OK(uint8_t tx_OK[4]);
 			}
 
 				break;
