@@ -115,3 +115,7 @@ ipch/
 *.vsp
 *.vspx
 *.sap
+*.lss
+*.srec
+*.eep
+*.atsuo
