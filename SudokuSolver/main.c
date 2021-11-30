@@ -50,7 +50,19 @@ void TIMER2_COMP_vect();
 // void TIMER2_COMP_vect();
 void USART_RXC_vector();
 void USART_TXC_vector();
+
+// Initializations routines
 void initUART();
+
+// Processing routines
+
+void clear_table();
+void reset_LED();
+void play_game();
+void send_table();
+void send_response_OK();
+
+
 
 int main(void)
 {
@@ -90,6 +102,100 @@ void initUART()
 	UCSRB = (1<<RXEN)|(1<<TXEN); // Enable reception and transmission circuitry
 }
 
+/*
+
+Subroutine : clear_table
+
+This routine clears the table of sudoku in all cells, setting each cell equal to 0.
+
+*/
+
+void clear_table(){
+
+	for(uint8_t i = 0; i < 9;i++){
+
+		for(uint8_t j = 0; j < 9; j++){
+
+			sudoku[i][j] = 0;
+
+		}
+
+
+	}
+
+
+}
+
+/*
+
+Subroutine : reset_LED
+
+Turning off the LEDs which are responsible of diplaying the progress oof sodku's solution.
+
+
+*/
+
+
+void reset_LED(){
+
+	pLedDdr = 0xFF;
+	pLedOut = 0xFF;
+
+
+}
+
+/*
+Subroutine : play_game
+
+
+
+*/
+
+void play_game(){
+
+
+
+}
+
+
+/*
+
+Subroutine : send_table
+
+This routine sends the solution of sudoku as table in PC.
+
+
+*/
+
+
+void send_table(){
+
+
+for(uint8_t i = 0;i < 9;i++){
+
+	for(uint8_t j = 0;j < 9;j++){
+
+		transm_buff[transm_prod] = sudoku[i][j]; // This needs a small modification
+		transm_prod++;
+	}
+}
+
+}
+
+void send_response_OK(){
+
+	transm_buff[transm_prod] = 0x4F
+	transm_prod++;
+	transm_buff[transm_prod] = 0x4B
+	transm_prod++;
+	transm_buff[transm_prod] = 0x0D
+	transm_prod++;
+	transm_buff[transm_prod] = 0x0A
+	transm_prod++;
+
+
+}
+
 
 ISR(TIMER0_COMP_vect, ISR_NAKED)
 {
@@ -126,8 +232,54 @@ ISR(TIMER0_COMP_vect, ISR_NAKED)
 	reti();
 }
 
+
+
 ISR(TIMER2_COMP_vect, ISR_NAKED)
-{
+{	
+	rcv_cons++;
+
+	switch(rcv_buff[rcv_cons]){
+
+
+		case 0x43:
+
+			if(rcv_buff[rcv_cons+1] == 0x0A && rcv_buff[rcv_cons+1] == 0x0D){
+				rcv_cons += 2;
+
+				clear_table();
+				reset_LED();
+				send_response_OK();
+			}
+
+				break;
+
+		case 0x50:
+
+			if(rcv_buff[rcv_cons+1] == 0x0A && rcv_buff[rcv_cons+1] == 0x0D){
+				rcv_cons += 2;
+
+				play_game();
+				send_response_OK();
+			}
+
+				break;
+
+		case 0x54:
+
+
+			if(rcv_buff[rcv_cons+1] == 0x0A && rcv_buff[rcv_cons+1] == 0x0D){
+				rcv_cons += 2;
+
+				send_table();
+				send_response_OK();
+			}
+
+				break;
+
+	}
+
+
+
 	
 }
 
@@ -168,3 +320,11 @@ USART_TXC_vector_RETI:
 	reti();
 
 }
+
+/*
+
+C
+P
+T
+
+*/
