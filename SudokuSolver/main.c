@@ -209,14 +209,27 @@ ISR(USART_RXC_vect, ISR_NAKED)
 {
 	uint8_t save_sreg = SREG;
 
-	// If BUFSZ is reached we have to process some data before we receive new.
-	// So reti and possibly trigger the process intrpt.
+	// If BUFSZ is reached we have to process some data before we
+	// receive new. So reti and possibly trigger the process intrpt.
+	// Change to USART_RXC_vect_TRIG to trigger intrpt.
 	if (rcv_prod - rcv_cons == BUFSZ)
 		goto USART_RXC_vect_RETI;
 
-	rcv_buff[rcv_prod%BUFSZ] = UDR;
-	++rcv_prod;
+// 	rcv_buff[rcv_prod%BUFSZ] = UDR;
+// 	++rcv_prod;
+	rcv_buff[rcv_prod++] = UDR; // works iff BUFSZ == UINT8_MAX+1
 
+/*	// This code will trigger the Timer2 Comp intrpt. It will only happen
+	// on buffer overflow. Until everything works this is disabled.
+	goto USART_RXC_vect_RETI;
+	
+USART_RXC_vect_TRIG:
+	trigger it
+	sei();
+	TCNT2 = MaxCnt;
+	_NOP();
+	cli();
+*/
 USART_RXC_vect_RETI:
 	SREG = save_sreg;
 
