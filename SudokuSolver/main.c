@@ -20,6 +20,9 @@
 #define pLedOut PORTA
 #define pLedDdr DDRA
 
+// TODO: Throw them all in a struct. Has some size optimizations.
+// Or maybe execution time. (Who knows)
+// (Although some variables are volatile which changes)
 
 // This must hold:  UINT8_MAX + 1 is evenly divisible by BUFSZ
 // Otherwise, the producers and consumers do not work correctly.
@@ -75,8 +78,10 @@ int main(void)
 
 	sei();
 
-	// inf loop
-    while (1);
+	for(;;)
+	{
+		/* This is an eternal loop*/
+	}
 }
 
 void initUART()
@@ -128,7 +133,76 @@ ISR(TIMER0_COMP_vect, ISR_NAKED)
 
 ISR(TIMER2_COMP_vect, ISR_NAKED)
 {
+	// save SREG
+	uint8_t save_sreg = SREG;
+
+	// common response.
+	uint8_t tx_OK[4] = {0x4F,0x4B,0x0D,0x0A};
+
+	switch (rcv_buff[rcv_cons])
+	{
+	case 0x41: // 'A', "AT\r\n", which just returns OK
+		// uint8_t cmd[3] = {0x54,0x0D,0x0A}; // char cmd[3] = "T\r\n";
+		// cmd bytes are hardcoded because, there can't be a var
+		// definition inside a case. Maybe global or PROGMEM string?
+		if (rcv_buff[rcv_cons+1] == 0x54 &&
+			rcv_buff[rcv_cons+2] == 0x0D &&
+			rcv_buff[rcv_cons+3] == 0x0A)
+		{	// Update rcv consumer.
+			rcv_cons = rcv_cons + 4;
+			// respond with "OK\CR\LF"
+			transm_buff[transm_prod] = tx_OK[0];
+			transm_buff[++transm_prod] = tx_OK[1];
+			transm_buff[++transm_prod] = tx_OK[2];
+			transm_buff[++transm_prod] = tx_OK[3];
+		} else {
+			// Eat everything until an '\LF' is found because the cmd
+			// is not correct.
+			do { } while ( rcv_buff[++rcv_cons] != 0x4A );
+		}
+		// work is done
+		break;
 	
+	case 0x4E: // 'N', "N<x><y><val>\r\n", which stores a clue and returns OK
+		if (rcv_buff[rcv_cons] == 0x54 &&
+			rcv_buff[rcv_cons+4] == 0x0D &&
+			rcv_buff[rcv_cons+5] == 0x0A)
+		{
+			// array indices are from 0-8, but the cmd indices are from 0x31-0x39
+			// use of postfix is necessary because rcv_cons++ will return 
+			// rcv_buff[rcv_cons] and then increment rcv_cons.
+			uint8_t i = rcv_buff[((++rcv_cons) & 0x0F)-0x31];
+			uint8_t j = rcv_buff[((++rcv_cons) & 0x0F)-0x31];
+			sudoku[i][j] = (rcv_buff[++rcv_cons] & 0x0F)-0x30;
+			// Update rcv consumer.
+			rcv_cons = rcv_cons + 2;
+			// respond with "OK\CR\LF"
+			transm_buff[transm_prod] = tx_OK[0];
+			transm_buff[transm_prod++] = tx_OK[1];
+			transm_buff[transm_prod++] = tx_OK[2];
+			transm_buff[transm_prod++] = tx_OK[3];
+		} else {
+		// Eat everything until an '\LF' is found because the cmd
+		// is not correct.
+		do { } while ( rcv_buff[++rcv_cons] != 0x4A );
+		}
+		break;
+	
+	case 0x53: // 'S', "S\r\n"
+		break;
+		
+	case 0x4F: // 'O', "OK\r\n"
+		break;
+		
+	default: // no matching cmd, eat bytes
+		do { } while ( rcv_buff[++rcv_cons] != 0x4A );
+		break;
+	}
+	
+	
+	SREG = save_sreg;
+	// return from interrupt
+	reti();
 }
 
 ISR(USART_RXC_vect, ISR_NAKED)
