@@ -8,17 +8,23 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
-#define F_CPU 10000000UL
-#define USART_BAUDRATE 9600
-#define BAUD_PRESCALE F_CPU/16/USART_BAUDRATE - 1
+#ifndef F_CPU
+#define F_CPU 1843200UL
+#endif
+
+// #ifndef BAUDRATE
+#define BAUD 9600
+// #endif
+
+#define BAUD_PRESCALE F_CPU/16/BAUD - 1
 #define BUFSZ 256
 
 
 #define NLeds 8 // num of LEDs, for the progess of the solver
 #define cMaxCnt 151-1 // Max Timer/Counter0 val.
 // #define cMaxCnt2 151-1 // Max Timer/Counter2 val.
-#define pLedOut PORTA
-#define pLedDdr DDRA
+#define pLedOut PORTB
+#define pLedDdr DDRB
 
 
 // This must hold:  UINT8_MAX + 1 is evenly divisible by BUFSZ
@@ -45,11 +51,11 @@ volatile uint8_t sudoku[9][9] = {
 // subroutines
 
 // Interrupt Service routines
-void TIMER0_COMP_vect();
-void TIMER2_COMP_vect();
+void TIMER0_COMPA_vect();
+void TIMER2_COMPA_vect();
 // void TIMER2_COMP_vect();
-void USART_RXC_vector();
-void USART_TXC_vector();
+void USART_RX_vector();
+void USART_TX_vector();
 void initUART();
 
 int main(void)
@@ -64,9 +70,9 @@ int main(void)
 	pLedOut = 0xFF; // LEDs off
 
 	// Timer settings
-	TCCR0 = (1<<CS02); ; // presc val. 256
-	OCR0 = cMaxCnt; // max tim/cnt0 value 150
-	TIMSK |= (1<<OCIE0); // enable TIM0_COMP interrupt
+	TCCR0B |= (1<<CS02); ; // presc val. 256
+	OCR0A = cMaxCnt; // max tim/cnt0 value 150
+	TIMSK0 |= (1<<OCIE0A); // enable TIM0_COMP interrupt
 	// TCCR2 = (1<<CS22)|(1<<CS21); // presc val. 1024
 	// OCR2 = cMaxCnt2; // max tim/cnt2 value
 
@@ -76,22 +82,22 @@ int main(void)
 	sei();
 
 	// infinite loop
-    while (1);
+    for(;;) {}
 }
 
 void initUART()
 {
-	UCSRC = (1<<URSEL)|(1<<UCSZ1)|(1<<UCSZ0); // Use 8-bit character sizes
+	UCSR0B |= (1<<RXEN0)|(1<<TXEN0); // Enable reception and transmission circuitry
+	UCSR0C |= (1<<UCSZ01)|(1<<UCSZ00); // Use 8-bit character sizes
 	// Load upper 8-bits of the baud rate value into the high byte of the UBRR register
-	UBRRH = BAUD_PRESCALE>>8;
+	UBRR0H |= BAUD_PRESCALE>>8;
 	// Load lower 8-bits of the baud rate value into the low byte of the UBRR register
-	UBRRL = BAUD_PRESCALE;
-	UCSRB |= (1<<RXCIE)|(1<<TXCIE); // Enable the USART RXC and TXC interrupts
-	UCSRB = (1<<RXEN)|(1<<TXEN); // Enable reception and transmission circuitry
+	UBRR0L |= BAUD_PRESCALE;
+	UCSR0B |= (1<<RXCIE0)|(1<<TXCIE0); // Enable the USART RXC and TXC interrupts
 }
 
 
-ISR(TIMER0_COMP_vect, ISR_NAKED)
+ISR(TIMER0_COMPA_vect, ISR_NAKED)
 {
 	// save SREG
 	uint8_t save_sreg = SREG;
@@ -126,12 +132,12 @@ ISR(TIMER0_COMP_vect, ISR_NAKED)
 	reti();
 }
 
-ISR(TIMER2_COMP_vect, ISR_NAKED)
+ISR(TIMER2_COMPA_vect, ISR_NAKED)
 {
 	
 }
 
-ISR(USART_RXC_vect, ISR_NAKED)
+ISR(USART_RX_vect, ISR_NAKED)
 {
 	uint8_t save_sreg = SREG;
 
@@ -140,8 +146,8 @@ ISR(USART_RXC_vect, ISR_NAKED)
 	if (rcv_prod - rcv_cons == BUFSZ)
 		goto USART_RXC_vect_RETI;
 
-	rcv_buff[rcv_prod%BUFSZ] = UDR;
-	++rcv_prod;
+	rcv_buff[rcv_prod%BUFSZ] = UDR0;
+	rcv_prod++;
 
 USART_RXC_vect_RETI:
 	SREG = save_sreg;
@@ -150,16 +156,15 @@ USART_RXC_vect_RETI:
 }
 
 
-ISR(USART_TXC_vect, ISR_NAKED)
+ISR(USART_TX_vect, ISR_NAKED)
 {
 	uint8_t save_sreg = SREG; // Storing the value of status register
 
 	if(transm_cons == 0)
 		goto USART_TXC_vector_RETI;
 
-	UDR  = transm_buff[transm_cons]; // Sending character as a response
-
-	transm_cons = (transm_cons+1)%BUFSZ; // Increasing the position of pointer in buffer transm_buffer
+	UDR0  = transm_buff[transm_cons]; // Sending character as a response
+	transm_cons++; // Increasing the position of pointer in buffer transm_buffer
 	
 USART_TXC_vector_RETI:
 

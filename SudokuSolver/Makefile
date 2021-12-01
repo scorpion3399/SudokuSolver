@@ -1,14 +1,22 @@
 MCU=atmega328p
-F_CPU=10000000
-BAUD=9600
+MCU2=m328p
+F_CPU=1843200UL
+BAUD=115200 # NOT the program's BAUD rate
 
-PARPORT=/dev/parport0
-SERPORT=/dev/ttyS0
+AVRDUDE=/home/panos/Downloads/arduino-1.8.16-linux64/arduino-1.8.16/hardware/tools/avr/bin/avrdude
+# AVRDUDE=avrdude
+PROGRAMMER=arduino
+PORT=/dev/ttyACM0
+# PARPORT=/dev/parport0
+# SERPORT=/dev/ttyS0
+CONFIG=/home/panos/Downloads/arduino-1.8.16-linux64/arduino-1.8.16/hardware/tools/avr/etc/avrdude.conf
+# CONFIG=/home/panos/.avrduderc
+# CONFIG=./avrdude.conf
 VERB=-v
 
 CC=avr-gcc
 OBJCOPY=avr-objcopy
-CFLAGS=-std=c99 -Wall -g -Os -mmcu=${MCU} -DF_CPU=${F_CPU} -I.
+CFLAGS=-std=c99 -Wall -g -O3 -mmcu=${MCU} -D F_CPU=${F_CPU} -I.
 TARGET=main
 SRCS=main.c
 
@@ -17,7 +25,7 @@ all:
 	${OBJCOPY} -j .text -j .data -O ihex ${TARGET}.bin ${TARGET}.hex
 
 flash:
-	avrdude ${VERB} ${VERB} ${VERB} ${VERB} -p ${MCU} -c arduino -b ${BAUD} -U flash:w:${TARGET}.hex:i -F -P ${SERPORT}
+	${AVRDUDE} -C ${CONFIG} ${VERB} -p ${MCU} -c ${PROGRAMMER} -P ${PORT} -b ${BAUD} -D -U flash:w:${TARGET}.hex:i 
 
 clean:
 	rm -f *.bin *.hex
