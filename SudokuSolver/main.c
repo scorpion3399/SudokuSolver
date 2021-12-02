@@ -8,7 +8,7 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
-#define F_CPU 10000000UL
+#define F_CPU 1843200UL
 #define USART_BAUDRATE 9600
 #define BAUD_PRESCALE F_CPU/16/USART_BAUDRATE - 1
 #define BUFSZ 256
@@ -60,10 +60,9 @@ static inline void initUART();
 static inline void checkSudoku();
 static inline void storeClue();
 static inline void clear_table();
-static inline void reset_LED();
 static inline void play_game();
 static inline void send_table();
-static inline void send_response_OK(uint8_t tx_OK[4]);
+static inline void send_response_OK();
 
 // Interrupt Service routines
 void TIMER0_COMP_vect();
@@ -350,7 +349,7 @@ USART_TXC_vector_RETI:
 static inline void initUART()
 {
 	UCSRB = (1<<RXEN)|(1<<TXEN); // Enable reception and transmission circuitry
-	UCSRC = (1<<URSEL)|(1<<UCSZ1)|(1<<UCSZ0); // Use 8-bit character sizes
+	UCSRC = (1<<URSEL)|(3<<UCSZ0); // Use 8-bit character sizes
 	// Load upper 8-bits of the baud rate value into the high byte of the UBRR register
 	UBRRH = BAUD_PRESCALE>>8;
 	// Load lower 8-bits of the baud rate value into the low byte of the UBRR register
@@ -427,6 +426,7 @@ static inline void storeClue()
  */
 static inline void checkSudoku()
 {
+	/*
 	if (rcv_buff[rcv_cons+1] == 0x0D &&
 	rcv_buff[rcv_cons+2] == 0x0A)
 	{
@@ -435,7 +435,9 @@ static inline void checkSudoku()
 
 		for (uint8_t i = 8; i >= 0; i--)
 		{
-			for (uint8_t j = 8; j >= 0; j--)
+			uint8_t j;
+			
+			for (j = 8; j >= 0; j--)
 			{
 				checksum[sudoku[j][i]-1] = 0;
 			}
@@ -463,6 +465,7 @@ static inline void checkSudoku()
 		}
 
 	}
+	*/
 }
 
 
@@ -579,5 +582,7 @@ static inline void send_response_OK()
 	transm_buff[transm_prod] = tx_OK[0];
 	transm_buff[++transm_prod] = tx_OK[1];
 	transm_buff[++transm_prod] = tx_OK[2];
-	transm_buff[++transm_prod++] = tx_OK[3];
+	transm_buff[++transm_prod] = tx_OK[3];
+	transm_prod++;
+	
 }
