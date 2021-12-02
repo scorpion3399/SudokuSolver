@@ -30,6 +30,9 @@ uint8_t transm_buff[BUFSZ];
 volatile uint8_t transm_cons = 0;
 volatile uint8_t transm_prod = 0;
 
+volatile uint8_t row_position = 8;
+volatile uint8_t col_position = 8;
+
 volatile uint8_t sudoku[9][9] = {
 	{3, 0, 6, 5, 0, 8, 4, 0, 0}, 
 	{5, 2, 0, 0, 0, 0, 0, 0, 0}, 
@@ -56,11 +59,11 @@ void initUART();
 
 // Processing routines
 
-void clear_table();
-void reset_LED();
-void play_game();
-void send_table();
-void send_response_OK(uint8_t tx_OK[4]);
+static void inline clear_table();
+static void inline reset_LED();
+static void inline play_game();
+static void inline send_table();
+static void inline send_response_OK(uint8_t tx_OK[4]);
 
 
 
@@ -91,6 +94,9 @@ int main(void)
     while (1);
 }
 
+
+//************** SUBROUTINES ******************//
+
 void initUART()
 {
 	UCSRC = (1<<URSEL)|(1<<UCSZ1)|(1<<UCSZ0); // Use 8-bit character sizes
@@ -104,13 +110,15 @@ void initUART()
 
 /*
 
-Subroutine : clear_table
+Subroutine: clear_table
+Input: None
+Returns: None 
 
-This routine clears the table of sudoku in all cells, setting each cell equal to 0.
+Description: This routine clears the table of sudoku in all cells, setting each cell equal to 0.
 
 */
 
-void clear_table(){
+static void inline clear_table(){
 
 	for(uint8_t i = 0; i < 9;i++){
 
@@ -128,15 +136,17 @@ void clear_table(){
 
 /*
 
-Subroutine : reset_LED
+Subroutine: reset_LED
+Input: None
+Returns: None
 
-Turning off the LEDs which are responsible of diplaying the progress oof sodku's solution.
+Description: Turning off the LEDs which are responsible of diplaying the progress oof sodku's solution.
 
 
 */
 
 
-void reset_LED(){
+static void inline reset_LED(){
 
 	pLedDdr = 0xFF;
 	pLedOut = 0xFF;
@@ -145,13 +155,17 @@ void reset_LED(){
 }
 
 /*
-Subroutine : play_game
 
+Subroutine: play_game
+Input: None
+Return: None
+
+Description: 
 
 
 */
 
-void play_game(){
+static void inline play_game(){
 
 
 
@@ -160,37 +174,62 @@ void play_game(){
 
 /*
 
-Subroutine : send_table
+Subroutine: send_table
+Input: None
+Returns: None
 
-This routine sends the solution of sudoku as table in PC.
+Description: This routine sends the solution of sudoku as table in PC.
 
 
 */
 
 
-void send_table(){
+static void inline send_table(){
 
+	// Sending each time a cell in the form N<X><Y><CR><LF>
 
-for(uint8_t i = 0;i < 9;i++){
-
-	for(uint8_t j = 0;j < 9;j++){
-
-		transm_buff[transm_prod] = 0x30+i;
+		transm_buff[transm_prod] = 0x30+row_position;
 		transm_prod++;
-		transm_buff[transm_prod] = 0x30+j;
+		transm_buff[transm_prod] = 0x30+col_position;
 		transm_prod++;
-		transm_buff[transm_prod] = 0x30+sudoku[i][j]; // This needs a small modification
+		transm_buff[transm_prod] = 0x30+sudoku[row_position][col_position]; // This needs a small modification
 		transm_prod++;
 		transm_buff[transm_prod] = 0x0D;
 		transm_prod++;
 		transm_buff[transm_prod] = 0x0A;
 		transm_prod++;
-	}
-}
+
+	// Increasing the global positions
+
+		col_position--;
+
+		if(col_position == -1){
+
+			col_position = 8;
+			row_position--;
+		}
+
+		if(row_position == -1){
+			row_position = 8;
+			col_position = 8;
+		}
+
 
 }
 
-void send_response_OK(uint8_t tx_OK[4]){
+/*
+
+Subroutine: send_response_OK
+Input: tx_OK
+Returns: None
+
+Description: This routine sends response OK<CR><LF> in PC in order to notify it that 
+			 the command has being executed successfully.
+
+
+*/
+
+static void inline send_response_OK(uint8_t tx_OK[4]){
 
 	transm_buff[transm_prod] = tx_OK[0];
 	transm_prod++;
@@ -204,6 +243,20 @@ void send_response_OK(uint8_t tx_OK[4]){
 
 }
 
+
+
+//************** ISR ******************//
+
+/*
+
+Subroutine: Interrupt Service Routine for Timer 0 Compare
+Input: None
+Returns: None
+
+Description: This ISR displays the progress of the sudoku solver in the LED00-LED07.
+
+
+*/
 
 ISR(TIMER0_COMP_vect, ISR_NAKED)
 {
@@ -240,7 +293,16 @@ ISR(TIMER0_COMP_vect, ISR_NAKED)
 	reti();
 }
 
+/*
 
+Subroutine: Interrupt Service Routine for Timer 2 Compare
+Input: None
+Returns: None
+
+Description: This ISR process each command receiving from USART.
+
+
+*/
 
 ISR(TIMER2_COMP_vect, ISR_NAKED)
 {	
@@ -293,6 +355,17 @@ ISR(TIMER2_COMP_vect, ISR_NAKED)
 	
 }
 
+/*
+
+Subroutine: Interrupt Service Routine for USART receive
+Input: None
+Returns: None
+
+Description: This ISR receives the data from USART.
+
+
+*/
+
 ISR(USART_RXC_vect, ISR_NAKED)
 {
 	uint8_t save_sreg = SREG;
@@ -311,6 +384,16 @@ USART_RXC_vect_RETI:
 	reti();
 }
 
+/*
+
+Subroutine: Interrupt Service Routine transmit
+Input: None
+Returns: None
+
+Description: This ISR transmits the data in PC.
+
+
+*/
 
 ISR(USART_TXC_vect, ISR_NAKED)
 {
@@ -331,10 +414,3 @@ USART_TXC_vector_RETI:
 
 }
 
-/*
-
-C
-P
-T
-
-*/
