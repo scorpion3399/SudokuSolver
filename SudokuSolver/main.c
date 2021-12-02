@@ -313,8 +313,11 @@ ISR(USART_TXC_vect, ISR_NAKED)
 {
 	uint8_t save_sreg = SREG; // Storing the value of status register
 
-	if(transm_cons == 0)
+	if(transm_cons == transm_prod)
 		goto USART_TXC_vector_RETI;
+
+	// Wait for empty transmit buffer
+	while ( !( UCSRA & (1<<UDRE)) )	
 
 	UDR  = transm_buff[transm_cons++]; // Sending character as a response
 
