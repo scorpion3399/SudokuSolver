@@ -45,15 +45,16 @@ volatile uint8_t sudoku[9][9] = {
 	{0, 0, 5, 2, 0, 6, 3, 0, 0}
 };
 
-// subroutines
+// Subroutines
+static inline void initUART();
+static inline void checkSudoku();
+static inline void storeClue();
 
 // Interrupt Service routines
 void TIMER0_COMP_vect();
 void TIMER2_COMP_vect();
-// void TIMER2_COMP_vect();
 void USART_RXC_vector();
 void USART_TXC_vector();
-void initUART();
 
 int main(void)
 {
@@ -83,18 +84,6 @@ int main(void)
 		/* This is an eternal loop*/
 	}
 }
-
-void initUART()
-{
-	UCSRC = (1<<URSEL)|(1<<UCSZ1)|(1<<UCSZ0); // Use 8-bit character sizes
-	// Load upper 8-bits of the baud rate value into the high byte of the UBRR register
-	UBRRH = BAUD_PRESCALE>>8;
-	// Load lower 8-bits of the baud rate value into the low byte of the UBRR register
-	UBRRL = BAUD_PRESCALE;
-	UCSRB |= (1<<RXCIE)|(1<<TXCIE); // Enable the USART RXC and TXC interrupts
-	UCSRB = (1<<RXEN)|(1<<TXEN); // Enable reception and transmission circuitry
-}
-
 
 ISR(TIMER0_COMP_vect, ISR_NAKED)
 {
@@ -142,53 +131,16 @@ ISR(TIMER2_COMP_vect, ISR_NAKED)
 	switch (rcv_buff[rcv_cons])
 	{
 	case 0x41: // 'A', "AT\r\n", which just returns OK
-		// uint8_t cmd[3] = {0x54,0x0D,0x0A}; // char cmd[3] = "T\r\n";
-		// cmd bytes are hardcoded because, there can't be a var
-		// definition inside a case. Maybe global or PROGMEM string?
-		if (rcv_buff[rcv_cons+1] == 0x54 &&
-			rcv_buff[rcv_cons+2] == 0x0D &&
-			rcv_buff[rcv_cons+3] == 0x0A)
-		{	// Update rcv consumer.
-			rcv_cons = rcv_cons + 4;
-			// respond with "OK\CR\LF"
-			transm_buff[transm_prod] = tx_OK[0];
-			transm_buff[++transm_prod] = tx_OK[1];
-			transm_buff[++transm_prod] = tx_OK[2];
-			transm_buff[++transm_prod] = tx_OK[3];
-		} else {
-			// Eat everything until an '\LF' is found because the cmd
-			// is not correct.
-			do { } while ( rcv_buff[++rcv_cons] != 0x4A );
-		}
+		sendOK();
 		// work is done
 		break;
 	
 	case 0x4E: // 'N', "N<x><y><val>\r\n", which stores a clue and returns OK
-		if (rcv_buff[rcv_cons] == 0x54 &&
-			rcv_buff[rcv_cons+4] == 0x0D &&
-			rcv_buff[rcv_cons+5] == 0x0A)
-		{
-			// array indices are from 0-8, but the cmd indices are from 0x31-0x39
-			// use of postfix is necessary because rcv_cons++ will return 
-			// rcv_buff[rcv_cons] and then increment rcv_cons.
-			uint8_t i = rcv_buff[((++rcv_cons) & 0x0F)-0x31];
-			uint8_t j = rcv_buff[((++rcv_cons) & 0x0F)-0x31];
-			sudoku[i][j] = (rcv_buff[++rcv_cons] & 0x0F)-0x30;
-			// Update rcv consumer.
-			rcv_cons = rcv_cons + 2;
-			// respond with "OK\CR\LF"
-			transm_buff[transm_prod] = tx_OK[0];
-			transm_buff[transm_prod++] = tx_OK[1];
-			transm_buff[transm_prod++] = tx_OK[2];
-			transm_buff[transm_prod++] = tx_OK[3];
-		} else {
-		// Eat everything until an '\LF' is found because the cmd
-		// is not correct.
-		do { } while ( rcv_buff[++rcv_cons] != 0x4A );
-		}
+		storeClue();
 		break;
 	
 	case 0x53: // 'S', "S\r\n"
+
 		break;
 		
 	case 0x4F: // 'O', "OK\r\n"
@@ -204,6 +156,7 @@ ISR(TIMER2_COMP_vect, ISR_NAKED)
 	// return from interrupt
 	reti();
 }
+
 
 ISR(USART_RXC_vect, ISR_NAKED)
 {
@@ -254,4 +207,159 @@ USART_TXC_vector_RETI:
 
 	reti();
 
+}
+
+
+
+
+// ***********  SUBROUTINES *********** //
+
+
+/**
+ * 
+ * Subroutine: initUART();
+ * 
+ * Input: none
+ * 
+ * Returns: nothing
+ * 
+ * Description: To begin
+ * 
+ */
+static inline void initUART()
+{
+	UCSRB = (1<<RXEN)|(1<<TXEN); // Enable reception and transmission circuitry
+	UCSRC = (1<<URSEL)|(1<<UCSZ1)|(1<<UCSZ0); // Use 8-bit character sizes
+	// Load upper 8-bits of the baud rate value into the high byte of the UBRR register
+	UBRRH = BAUD_PRESCALE>>8;
+	// Load lower 8-bits of the baud rate value into the low byte of the UBRR register
+	UBRRL = BAUD_PRESCALE;
+	UCSRB |= (1<<RXCIE)|(1<<TXCIE); // Enable the USART RXC and TXC interrupts
+}
+
+
+
+/**
+ * 
+ * Subroutine: sendOK();
+ * 
+ * Input: none
+ * 
+ * Returns: nothing
+ * 
+ * Description: Jusy send an OK.
+ * 
+ */
+static inline void sendOK()
+{
+	// uint8_t cmd[3] = {0x54,0x0D,0x0A}; // char cmd[3] = "T\r\n";
+	// cmd bytes are hardcoded because, there can't be a var
+	// definition inside a case. Maybe global or PROGMEM string?
+	if (rcv_buff[rcv_cons+1] == 0x54 &&
+		rcv_buff[rcv_cons+2] == 0x0D &&
+		rcv_buff[rcv_cons+3] == 0x0A)
+	{	// Update rcv consumer.
+		rcv_cons = rcv_cons + 4;
+		// respond with "OK\CR\LF"
+		transm_buff[transm_prod] = tx_OK[0];
+		transm_buff[++transm_prod] = tx_OK[1];
+		transm_buff[++transm_prod] = tx_OK[2];
+		transm_buff[++transm_prod] = tx_OK[3];
+	} else {
+		// Eat everything until an '\LF' is found because the cmd
+		// is not correct.
+		do { } while ( rcv_buff[++rcv_cons] != 0x4A );
+	}
+}
+
+
+/**
+ * 
+ * Subroutine: storeClue();
+ * 
+ * Input: none
+ * 
+ * Returns: nothing
+ * 
+ * Description: Checks that the sudoku matrix is corect.
+ * 
+ */
+static inline storeClue()
+{
+
+	if (rcv_buff[rcv_cons] == 0x54 &&
+		rcv_buff[rcv_cons+4] == 0x0D &&
+		rcv_buff[rcv_cons+5] == 0x0A)
+	{
+		// array indices are from 0-8, but the cmd indices are from 0x31-0x39
+		// use of postfix is necessary because rcv_cons++ will return 
+		// rcv_buff[rcv_cons] and then increment rcv_cons.
+		uint8_t i = rcv_buff[((++rcv_cons) & 0x0F)-0x31];
+		uint8_t j = rcv_buff[((++rcv_cons) & 0x0F)-0x31];
+		sudoku[i][j] = (rcv_buff[++rcv_cons] & 0x0F)-0x30;
+		// Update rcv consumer.
+		rcv_cons = rcv_cons + 2;
+		// respond with "OK\CR\LF"
+		transm_buff[transm_prod] = tx_OK[0];
+		transm_buff[transm_prod++] = tx_OK[1];
+		transm_buff[transm_prod++] = tx_OK[2];
+		transm_buff[transm_prod++] = tx_OK[3];
+	} else {
+	// Eat everything until an '\LF' is found because the cmd
+	// is not correct.
+	do { } while ( rcv_buff[++rcv_cons] != 0x4A );
+	}
+}
+
+
+
+/**
+ * 
+ * Subroutine: checkSudoku();
+ * 
+ * Input: none
+ * 
+ * Returns: nothing
+ * 
+ * Description: Checks that the sudoku matrix is corect.
+ * 
+ */
+static inline void checkSudoku()
+{
+	if (rcv_buff[rcv_cons+1] == 0x0D &&
+	rcv_buff[rcv_cons+2] == 0x0A)
+	{
+		uint8_t checksum[9] = {1,2,3,4,5,6,7,8,9};
+		uint8_t test = 0;
+
+		for (uint8_t i = 8; i >= 0; i--)
+		{
+			for (uint8_t j = 8; j >= 0; j--)
+			{
+				checksum[sudoku[j][i]-1] = 0;
+			}
+
+			j = 9;
+
+			do {
+			 	test |= checksum[j];
+			} while (--j >= 0);
+		}
+
+		checksum[9] = {1,2,3,4,5,6,7,8,9};
+
+		for (uint8_t i = 8; i >= 0; i--)
+		{
+			for (uint8_t j = 8; j >= 0; j--)
+			{
+				sudoku[i][j]
+				
+			}
+
+			do {
+				checksum[]
+			} while (i >= 0);
+		}
+
+	}
 }
