@@ -116,7 +116,7 @@ void clear_table(){
 
 		for(uint8_t j = 0; j < 9; j++){
 
-			sudoku[i][j] = 0;
+			sudoku[i][j] = 0x30;
 
 		}
 
@@ -175,7 +175,15 @@ for(uint8_t i = 0;i < 9;i++){
 
 	for(uint8_t j = 0;j < 9;j++){
 
-		transm_buff[transm_prod] = sudoku[i][j]; // This needs a small modification
+		transm_buff[transm_prod] = 0x30+i;
+		transm_prod++;
+		transm_buff[transm_prod] = 0x30+j;
+		transm_prod++;
+		transm_buff[transm_prod] = 0x30+sudoku[i][j]; // This needs a small modification
+		transm_prod++;
+		transm_buff[transm_prod] = 0x0D;
+		transm_prod++;
+		transm_buff[transm_prod] = 0x0A;
 		transm_prod++;
 	}
 }
