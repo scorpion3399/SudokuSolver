@@ -52,6 +52,8 @@ volatile uint8_t sudoku[9][9] = {
 	{0, 0, 5, 2, 0, 6, 3, 0, 0}
 };
 
+// constants
+const uint8_t tx_OK[4] = {0x4F,0x4B,0x0D,0x0A};
 
 // Subroutines
 static inline void initUART();
@@ -167,63 +169,72 @@ ISR(TIMER0_COMP_vect, ISR_NAKED)
 ISR(TIMER2_COMP_vect, ISR_NAKED)
 {
 	uint8_t save_sreg = SREG; // save SREG
-
-	uint8_t tx_OK[4] = {0x4F,0x4B,0x0D,0x0A};
 	
-	rcv_cons++;
-
 	switch(rcv_buff[rcv_cons])
 	{
-		case 0x41: // 'A', "AT\r\n", which just returns OK
+		case 0x41: // 'A', "AT\r\n", sends response "OK\r\n"
 			
-			sendOK();
-			// work is done
+			// uint8_t cmd[3] = {0x54,0x0D,0x0A}; // char cmd[3] = "T\r\n";
+			// cmd bytes are hardcoded because, there can't be a var
+			// definition inside a case. Maybe global or PROGMEM string?
+			if (rcv_buff[rcv_cons+1] == 0x54 &&
+				rcv_buff[rcv_cons+2] == 0x0D &&
+				rcv_buff[rcv_cons+3] == 0x0A)
+			{	// Update rcv consumer.
+				rcv_cons = rcv_cons + 4;
+				// respond with "OK\CR\LF"
+				send_response_OK();
+
+			} else {
+				// Eat everything until an '\LF' is found because the cmd
+				// is not correct.
+				do { } while ( rcv_buff[++rcv_cons] != 0x4A );
+			}
 			break;
 
-		case 0x43: // 'C', "C\r\n", clears the
+		case 0x43: // 'C' "C\r\n"
+		// "C\r\n", clears the Sudoku table and notifies PC ("OK\r\n")
 
-			if(rcv_buff[rcv_cons+1] == 0x0A && rcv_buff[rcv_cons+1] == 0x0D)
+			if(rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A)
 			{
-				rcv_cons += 2;
+				rcv_cons += 3;
 
 				clear_table();
-				reset_LED();
-				send_response_OK(tx_OK);
+				send_response_OK();
 			}
 
 			break;
 
-		case 0x50:
-
-			if(rcv_buff[rcv_cons+1] == 0x0A && rcv_buff[rcv_cons+1] == 0x0D)
-			{
-				rcv_cons += 2;
-
-				play_game();
-				send_response_OK(tx_OK);
-			}
-
-			break;
-
-		case 0x54:
-
-
-			if(rcv_buff[rcv_cons+1] == 0x0A && rcv_buff[rcv_cons+1] == 0x0D)
-			{
-				rcv_cons += 2;
-
-				send_table();
-				send_response_OK(tx_OK);
-			}
-
-			break;
-	
 		case 0x4E: // 'N', "N<x><y><val>\r\n", which stores a clue and returns OK
 			
 			storeClue();
 			break;
-	
+
+		case 0x50: // 'P' "P\r\n"
+
+			if(rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A)
+			{
+				rcv_cons += 3;
+
+				play_game();
+				send_response_OK();
+			}
+
+			break;
+
 		case 0x53: // 'S', "S\r\n"
+
+			break;
+
+		case 0x54: // 'T' "T\r\n"
+
+			if(rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A)
+			{
+				rcv_cons += 3;
+
+				send_table();
+				send_response_OK();
+			}
 
 			break;
 		
@@ -346,38 +357,22 @@ static inline void initUART()
 
 
 
-/**
- * 
- * Subroutine: sendOK();
- * 
- * Input: none
- * 
- * Returns: nothing
- * 
- * Description: Jusy send an OK.
- * 
- */
-static inline void sendOK()
-{
-	// uint8_t cmd[3] = {0x54,0x0D,0x0A}; // char cmd[3] = "T\r\n";
-	// cmd bytes are hardcoded because, there can't be a var
-	// definition inside a case. Maybe global or PROGMEM string?
-	if (rcv_buff[rcv_cons+1] == 0x54 &&
-		rcv_buff[rcv_cons+2] == 0x0D &&
-		rcv_buff[rcv_cons+3] == 0x0A)
-	{	// Update rcv consumer.
-		rcv_cons = rcv_cons + 4;
-		// respond with "OK\CR\LF"
-		transm_buff[transm_prod] = tx_OK[0];
-		transm_buff[++transm_prod] = tx_OK[1];
-		transm_buff[++transm_prod] = tx_OK[2];
-		transm_buff[++transm_prod] = tx_OK[3];
-	} else {
-		// Eat everything until an '\LF' is found because the cmd
-		// is not correct.
-		do { } while ( rcv_buff[++rcv_cons] != 0x4A );
-	}
-}
+// /*
+//  * 
+//  * Subroutine: sendOK();
+//  * 
+//  * Input: none
+//  * 
+//  * Returns: nothing
+//  * 
+//  * Description: Jusy send an OK.
+//  * 
+//  */
+ 
+// static inline void sendOK()
+// {
+
+// }
 
 
 /**
@@ -391,9 +386,8 @@ static inline void sendOK()
  * Description: Checks that the sudoku matrix is corect.
  * 
  */
-static inline storeClue()
+static inline void storeClue()
 {
-
 	if (rcv_buff[rcv_cons] == 0x54 &&
 		rcv_buff[rcv_cons+4] == 0x0D &&
 		rcv_buff[rcv_cons+5] == 0x0A)
@@ -401,16 +395,13 @@ static inline storeClue()
 		// array indices are from 0-8, but the cmd indices are from 0x31-0x39
 		// use of postfix is necessary because rcv_cons++ will return 
 		// rcv_buff[rcv_cons] and then increment rcv_cons.
-		uint8_t i = rcv_buff[((++rcv_cons) & 0x0F)-0x31];
-		uint8_t j = rcv_buff[((++rcv_cons) & 0x0F)-0x31];
-		sudoku[i][j] = (rcv_buff[++rcv_cons] & 0x0F)-0x30;
+		uint8_t x = (rcv_buff[++rcv_cons] & 0x0F) - 0x31;
+		uint8_t y = (rcv_buff[++rcv_cons] & 0x0F) - 0x31;
+		sudoku[x][y] = (rcv_buff[++rcv_cons] & 0x0F) - 0x30;
 		// Update rcv consumer.
 		rcv_cons = rcv_cons + 2;
 		// respond with "OK\CR\LF"
-		transm_buff[transm_prod] = tx_OK[0];
-		transm_buff[transm_prod++] = tx_OK[1];
-		transm_buff[transm_prod++] = tx_OK[2];
-		transm_buff[transm_prod++] = tx_OK[3];
+		send_response_OK();
 	} else {
 		// Eat everything until an '\LF' is found because the cmd
 		// is not correct.
@@ -483,44 +474,17 @@ static inline void checkSudoku()
  * Description: This routine clears the table of sudoku in all cells, setting each cell equal to 0.
  * 
  */
-static inline void clear_table(){
-
-	for(uint8_t i = 0; i < 9;i++){
-
-		for(uint8_t j = 0; j < 9; j++){
-
-			sudoku[i][j] = 0x30;
-
+static inline void clear_table()
+{
+	for (uint8_t i = 8; i >= 0; i--)
+	{
+		for (uint8_t j = 8; j >= 0; j--)
+		{
+			sudoku[i][j] = 0;
 		}
-
-
 	}
-
-
 }
 
-/**
- * 
- * Subroutine: reset_LED
- * 
- * Input: None
- * 
- * Returns: None
- * 
- * Description:
- * Turning off the LEDs which are responsible of diplaying
- * the progress of Sudoku's solution.
- * 
- */
-
-
-static inline void reset_LED(){
-
-	pLedDdr = 0xFF;
-	pLedOut = 0xFF;
-
-
-}
 
 /**
  *
@@ -598,14 +562,19 @@ static inline void send_table()
  * 
  */
 
-static inline void send_response_OK(uint8_t tx_OK[4])
+static inline void send_response_OK()
 {
+	// transm_buff[transm_prod] = tx_OK[0];
+	// transm_prod++;
+	// transm_buff[transm_prod] = tx_OK[1];
+	// transm_prod++;
+	// transm_buff[transm_prod] = tx_OK[2];
+	// transm_prod++;
+	// transm_buff[transm_prod] = tx_OK[3];
+	// transm_prod++;
+
 	transm_buff[transm_prod] = tx_OK[0];
-	transm_prod++;
-	transm_buff[transm_prod] = tx_OK[1];
-	transm_prod++;
-	transm_buff[transm_prod] = tx_OK[2];
-	transm_prod++;
-	transm_buff[transm_prod] = tx_OK[3];
-	transm_prod++;
+	transm_buff[++transm_prod] = tx_OK[1];
+	transm_buff[++transm_prod] = tx_OK[2];
+	transm_buff[++transm_prod++] = tx_OK[3];
 }
