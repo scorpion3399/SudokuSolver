@@ -432,7 +432,7 @@ static inline void checkSudoku()
 	if (rcv_buff[rcv_cons+1] == 0x0D &&
 		rcv_buff[rcv_cons+2] == 0x0A)
 	{
-		uint8_t checksum[] = {1,2,3,4,5,6,7,8,9};
+		uint8_t checksum[9] = {1,2,3,4,5,6,7,8,9};
 		uint8_t i, j = 0; // uint8_t i = 0; uint8_t j = 0;
 		
 		// check every COLUMN
@@ -452,12 +452,15 @@ static inline void checkSudoku()
 			} while (--j >= 0);
 		}
 
-		// reinitialize checksum
-		checksum[] = {1,2,3,4,5,6,7,8,9};
-		
 		// check every ROW
 		for (j = 8; j >= 0; j--)
 		{
+			// reinitialize checksum
+			for (i = 8; i >= 0; i--)
+			{
+				checksum[i] = i+1;
+			}
+			
 			for (i = 8; i >= 0; i--)
 			{
 				checksum[sudoku[j][i]-1] = 0;
@@ -471,34 +474,50 @@ static inline void checkSudoku()
 				test |= checksum[i-1];
 			} while (--i >= 0);
 		}
+
+		// Check every Sudoku BOX (3x3)                     |
+		// access pattern: (left to right ---->, up to down |
+		//                                                  V
+		// (9,9),(8,9),(7,9) | (9,8),(8,8),(7,8) | (9,7),(8,7),(7,7) 
+		// (6,9),(5,9),(4,9) | (6,8),(5,8),(4,8) | (6,7),(5,7),(4,7)
+		// (3,9),(2,9),(1,9) | (3,8),(2,8),(1,8) | (3,7),(2,7),(1,7)
 		
-		// reinitialize checksum
-		uint8_t checksum[] = {1,2,3,4,5,6,7,8,9};
+		// (9,6),(8,6),(7,6) | (9,5),(8,5),(7,5) | (9,4),(8,4),(7,4)
+		// (6,6),(5,6),(4,6) | (6,5),(5,5),(4,5) | (6,4),(5,4),(4,4)
+		// (3,6),(2,6),(1,6) | (3,5),(2,5),(1,5) | (3,4),(2,4),(1,4)
 		
-		// Check every Sudoku BOX (3x3)
-		for (uint8_t k = 2; k >= 0; k--)
+		// (9,3),(8,3),(7,3) | (9,2),(8,2),(7,2) | (9,1),(8,1),(7,1)
+		// (6,3),(5,3),(4,3) | (6,2),(5,2),(4,2) | (6,1),(5,1),(4,1)
+		// (3,3),(2,3),(1,3) | (3,2),(2,2),(1,2) | (3,1),(2,1),(1,1)
+		
+		for (uint8_t c = 2; c >= 0; c--)
 		{
-			for (j = (k+1)*3-1; j >= 3*k; j--)
+			for (uint8_t r = 2; r >= 0; r--)
 			{
-				for (i = (k+1)*3-1; i >= 3*k; i--)
+				for (j = (c+1)*3-1; j >= 3*c; j--)
 				{
-					checksum[sudoku[i][j]-1] = 0;
+					for (i = (r+1)*3-1; i >= 3*r; i--)
+					{
+						checksum[sudoku[i][j]-1] = 0;
+					}
+				}
+
+				i = 9;
+
+				do {
+					// If any checksum array elem is other than zero,
+					// then an
+					test |= checksum[i-1];
+				} while (--i >= 0);
+			
+				// reinitialize checksum
+				for (i = 8; i >= 0; i--)
+				{
+					checksum[i] = i+1;
 				}
 			}
-			
-			i = 9;
-			
-			do {
-				// If any checksum array elem is other than zero,
-				// then an
-				test |= checksum[i-1];
-			} while (--i >= 0);
-			
-			// reinitialize checksum
-			checksum[] = {1,2,3,4,5,6,7,8,9};
 		}
 	}
-	
 }
 
 
