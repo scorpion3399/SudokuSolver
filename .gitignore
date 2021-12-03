@@ -60,6 +60,8 @@ dkms.conf
 *.user
 *.userosscache
 *.sln.docstates
+*.atsln
+*.atsuo
 
 # Build results
 [Dd]ebug/
@@ -118,4 +120,3 @@ ipch/
 *.lss
 *.srec
 *.eep
-*.atsuo
