@@ -120,3 +120,5 @@ ipch/
 *.lss
 *.srec
 *.eep
+*.cproj
+*.xml

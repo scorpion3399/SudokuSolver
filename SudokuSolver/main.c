@@ -38,6 +38,8 @@ volatile uint8_t transm_prod = 0;
 // sent back to the PC.
 volatile uint8_t row_position = 8;
 volatile uint8_t col_position = 8;
+// if zero it means the Sudoku is solved
+volatile uint8_t test = 0;
 
 // The Sudoku matrix
 volatile uint8_t sudoku[9][9] = {
@@ -221,8 +223,8 @@ ISR(TIMER2_COMP_vect, ISR_NAKED)
 
 			break;
 
-		case 0x53: // 'S', "S\r\n"
-
+		case 0x53: // 'S', "S\r\n", check if the Sudoku is correctly solved.
+			checkSudoku();
 			break;
 
 		case 0x54: // 'T' "T\r\n"
@@ -426,17 +428,16 @@ static inline void storeClue()
  */
 static inline void checkSudoku()
 {
-	/*
+	// first check that the cmd is correct (ends in \r\n in this case)
 	if (rcv_buff[rcv_cons+1] == 0x0D &&
-	rcv_buff[rcv_cons+2] == 0x0A)
+		rcv_buff[rcv_cons+2] == 0x0A)
 	{
-		uint8_t checksum[9] = {1,2,3,4,5,6,7,8,9};
-		uint8_t test = 0;
-
-		for (uint8_t i = 8; i >= 0; i--)
-		{
-			uint8_t j;
-			
+		uint8_t checksum[] = {1,2,3,4,5,6,7,8,9};
+		uint8_t i, j = 0; // uint8_t i = 0; uint8_t j = 0;
+		
+		// check every COLUMN
+		for (i = 8; i >= 0; i--)
+		{	
 			for (j = 8; j >= 0; j--)
 			{
 				checksum[sudoku[j][i]-1] = 0;
@@ -445,27 +446,59 @@ static inline void checkSudoku()
 			j = 9;
 
 			do {
-			 	test |= checksum[j];
+				// If any checksum array elem is other than zero,
+				// then an 
+			 	test |= checksum[j-1];
 			} while (--j >= 0);
 		}
 
-		checksum[9] = {1,2,3,4,5,6,7,8,9};
-
-		for (uint8_t i = 8; i >= 0; i--)
+		// reinitialize checksum
+		checksum[] = {1,2,3,4,5,6,7,8,9};
+		
+		// check every ROW
+		for (j = 8; j >= 0; j--)
 		{
-			for (uint8_t j = 8; j >= 0; j--)
+			for (i = 8; i >= 0; i--)
 			{
-				sudoku[i][j]
-				
+				checksum[sudoku[j][i]-1] = 0;
 			}
-
+			
+			i = 9;
+			
 			do {
-				checksum[]
-			} while (i >= 0);
+				// If any checksum array elem is other than zero,
+				// then an
+				test |= checksum[i-1];
+			} while (--i >= 0);
 		}
-
+		
+		// reinitialize checksum
+		uint8_t checksum[] = {1,2,3,4,5,6,7,8,9};
+		
+		// Check every Sudoku BOX (3x3)
+		for (uint8_t k = 2; k >= 0; k--)
+		{
+			for (j = (k+1)*3-1; j >= 3*k; j--)
+			{
+				for (i = (k+1)*3-1; i >= 3*k; i--)
+				{
+					checksum[sudoku[i][j]-1] = 0;
+				}
+			}
+			
+			i = 9;
+			
+			do {
+				// If any checksum array elem is other than zero,
+				// then an
+				test |= checksum[i-1];
+			} while (--i >= 0);
+			
+			// reinitialize checksum
+			checksum[] = {1,2,3,4,5,6,7,8,9};
+		}
 	}
-	*/
+	
 }
 
 
