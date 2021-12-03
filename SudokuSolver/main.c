@@ -36,8 +36,8 @@ volatile uint8_t transm_prod = 0;
 
 // Pointers to the next clue that will be
 // sent back to the PC.
-volatile uint8_t row_position = 8;
-volatile uint8_t col_position = 8;
+volatile uint8_t row_position = 9;
+volatile uint8_t col_position = 9;
 // if zero it means the Sudoku is solved
 volatile uint8_t test = 0;
 
@@ -582,7 +582,7 @@ static inline void send_table()
 		transm_prod++;
 		transm_buff[transm_prod] = 0x30+col_position;
 		transm_prod++;
-		transm_buff[transm_prod] = 0x30+sudoku[row_position][col_position]; // This needs a small modification
+		transm_buff[transm_prod] = 0x30+sudoku[row_position-1][col_position-1]; // This needs a small modification
 		transm_prod++;
 		transm_buff[transm_prod] = 0x0D;
 		transm_prod++;
@@ -593,15 +593,15 @@ static inline void send_table()
 
 		col_position--;
 
-		if(col_position == -1){
+		if(col_position == 0){
 
-			col_position = 8;
+			col_position = 9;
 			row_position--;
 		}
 
-		if(row_position == -1){
-			row_position = 8;
-			col_position = 8;
+		if(row_position == 0){
+			row_position = 9;
+			col_position = 9;
 		}
 
 }
