@@ -122,3 +122,5 @@ ipch/
 *.eep
 *.cproj
 *.xml
+*.aux
+*.toc

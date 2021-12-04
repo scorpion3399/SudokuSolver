@@ -51,7 +51,7 @@
 %bottom=25mm
 %}
 
-\input{avrListing.tex}
+% \input{avrListing.tex}
 
 % \lstdefinestyle{ListingSample}{
 % 	basicstyle=\small\ttfamily,
@@ -71,11 +71,11 @@
 
 \begin{document}
 
-\input{titlepage}
+% \input{titlepage}
 
-\newpage
-\tableofcontents
-\newpage
+% \newpage
+% \tableofcontents
+% \newpage
 
 \section{Εισαγωγή}
 Σκοπός του Project είναι η επίλυση ενός παιχνιδιού Sudoku (9x9 πλέγμα) χρησιμοποιώντας έναν μικροελεγκτή AVR. Η διεπαφή του μικροελεγκτή με τον εξωτερικό κόσμο υλοποιείται με χρήση της σειριακής θύρας RS232 και με τη χρήση του τερματικού προγραμμάτος putty. Η επίλυση του Sudoku θα πραγματοποιηθεί σε μεταγενέστερο χρόνο χρησιμοποιώντας έναν άλγόριθμο οποίος και θα αποφασίστει με βάση την απόδοση του.
@@ -102,25 +102,25 @@
 \centering
 \begin{tabular}[c]{| c | c |}
 \hline
-LED & Clues found \\
+LEDs & Clues found \\
 \hline
-turned off & $\le 10$ \\
+LEDs off & $< 10$ \\
 \hline
-LED00 &  $\greq 10$ \\
+LED00 &  $\geq 10$ \\
 \hline
-LED00-01 & $\greq 20$ \\
+LED00-01 & $\geq 20$ \\
 \hline
-LED00-02 & $\greq 30$ \\
+LED00-02 & $\geq 30$ \\
 \hline
-LED00-03 & $\greq 40$ \\
+LED00-03 & $\geq 40$ \\
 \hline
-LED00-04 & $\greq 50$ \\
+LED00-04 & $\geq 50$ \\
 \hline
-LED00-05 & $\greq 60$ \\
+LED00-05 & $\geq 60$ \\
 \hline
-LED00-06 & $\greq 70$ \\
+LED00-06 & $\geq 70$ \\
 \hline
-LED00-07 & $\greq 80$ \\
+LED00-07 & $\geq 80$ \\
 \hline
 \end{tabular}
 % \renewcommand{\arraystretch}{1.2}
