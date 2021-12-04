@@ -350,13 +350,13 @@ USART_TXC_vector_RETI:
  */
 static inline void initUART()
 {
-	UCSRB = (1<<RXEN)|(1<<TXEN); // Enable reception and transmission circuitry
-	UCSRC = (1<<URSEL)|(3<<UCSZ0); // Use 8-bit character sizes
 	// Load upper 8-bits of the baud rate value into the high byte of the UBRR register
-	UBRRH = BAUD_PRESCALE>>8;
+	UBRRH = (BAUD_PRESCALE)>>8;
 	// Load lower 8-bits of the baud rate value into the low byte of the UBRR register
 	UBRRL = BAUD_PRESCALE;
-	UCSRB |= (1<<RXCIE)|(1<<TXCIE); // Enable the USART RXC and TXC interrupts
+	UCSRB = (1 << RXEN) | (1 << TXEN); // Enable reception and transmission circuitry
+	UCSRC = (1 << URSEL) | (1 << UCSZ0) | (1 << UCSZ0); // Use 8-bit character sizes
+	UCSRB |= (1 << RXCIE) | (1 << TXCIE); // Enable the USART RXC and TXC interrupts
 }
 
 
