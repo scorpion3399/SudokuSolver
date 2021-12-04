@@ -361,24 +361,6 @@ static inline void initUART()
 
 
 
-// /*
-//  * 
-//  * Subroutine: sendOK();
-//  * 
-//  * Input: none
-//  * 
-//  * Returns: nothing
-//  * 
-//  * Description: Jusy send an OK.
-//  * 
-//  */
- 
-// static inline void sendOK()
-// {
-
-// }
-
-
 /**
  * 
  * Subroutine: storeClue();

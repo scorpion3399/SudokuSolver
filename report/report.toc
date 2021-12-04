@@ -1,0 +1,5 @@
+\babel@toc {english}{}
+\contentsline {section}{\numberline {1}Εισαγωγή}{2}%
+\contentsline {section}{\numberline {2}Περιγραφή της υλοποίησης του εργαστηρίου}{2}%
+\contentsline {section}{\numberline {3}Έλεγχος σωστής λειτουργίας}{2}%
+\contentsline {section}{\numberline {4}Συμπεράσματα}{2}%
