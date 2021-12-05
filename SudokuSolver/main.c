@@ -76,7 +76,7 @@ void USART_TXC_vector();
 int main(void)
 {
 	// Setup stack
-	SPL = RAMEND;
+	SPL = (uint8_t) RAMEND;
 #ifdef SPH
 	SPH = RAMEND>>8;
 #endif
@@ -88,8 +88,8 @@ int main(void)
 	TCCR0 = (1<<CS02); ; // presc val. 256
 	OCR0 = cMaxCnt; // max tim/cnt0 value 150
 	TIMSK |= (1<<OCIE0); // enable TIM0_COMP interrupt
-	// TCCR2 = (1<<CS22)|(1<<CS21); // presc val. 1024
-	// OCR2 = cMaxCnt2; // max tim/cnt2 value
+	TCCR2 = (1<<CS22)|(1<<CS21); // presc val. 1024
+	OCR2 = cMaxCnt; // max tim/cnt2 value
 
 	// UART init
 	initUART();
