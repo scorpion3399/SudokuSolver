@@ -88,9 +88,59 @@
 Το πρότζεκτ αποτελείται απο 4 μέρη τα οποία είναι η διεπαφή της σειριακής θύρας, η επεξεργασία των εντολών, ο αλγόριθμος επίλυσης του Sudoku και η οθόνη η οποία εμφανίζει τη πρόοδο επίλυσης του Sudoku. 
 
 \subsection{Σειριακή Θύρα RS232}
-Κατά την υλοποίηση της 
+Η επικοινωνία του μικροελεγκτή με το χρήστη επιτυγχάνεται μέσω της σειριακής θύρας ορίζοντας τις παραμέτρους της έτσι ώστε να τηρούν τις προδιαγραφές:\\
+\begin{itemize}
+	\item BAUD rate 9600 bps
+	\item 8 data bits
+	\item No parity
+	\item 1 stop bit
+\end{itemize}
 
-\subsection{Επεξεργασία των εντολών}
+Για το σετάρισμα του BAUD rate στην τιμή 9600 φορρτώθηκε στον 16-bit καταχωρητή UBRR η τιμή $F\_CPU/16/USART\_BAUDRATE - 1  = 10 * 10^6 / 16 / 9600 - 1 = 64.10$, το οποίο απλοποιείται στο 64 (ο UBRR δέχεται ακέραιες τιμές).
+
+Στη συνέχεια, ενεργοποιείται η λήψη και η μετάδοση δεδομένων μέσω των flags RXEN και TXEN του UCSRB. Τα interrupt flags τόσο της λήψης όσο και της μετάδοσης, ενεργοποιούνται προκειμένου ο μικροελεγκτής να λαμβάνει και να μεταδίδει δεδομένα με χρήση interrupts αντί για polling. Το τελευταίο δεν προτιμήθηκε λόγω χαμηλότερης απόδοσης.
+
+Τέλος, για την ρύθμιση 8 data bits, αρχικά ενεργοποιείται ο UCSRC (ίδιος με τον UBRRH) με το URSEL bit και τίθενται τα UCSZ0 και UCSZ1 στην τιμή 1. Για τη ρύθμιση του parity και του stop bit, δεν απαιτείται κάποια ενέργεια καθώς είναι αυτόματα ρυθμισένα στην επιθυμητή τιμή (0).
+
+
+\lstinputlisting[label=code:initUART, language=C, firstline=351, lastline=365, tabsize=2, caption=Κώδικας αρχικοποίησης UART]{main.c}
+
+\subsection{Επεξεργασία των εντολών}\
+
+Οι εντολές που υποστηρίζει το ενσωματώμενο σύστήμα παρατίθονται παράκατω:
+
+\begin{table}[h!]
+\centering
+\begin{tabular}[c]{| p{0.3\textwidth} | p{0.3\textwidth} | p{0.3\textwidth} |}
+\hline
+Εντολή από PC & Ενέργεια Εντολής & Απάντηση προς PC \\
+\hline
+"AT\textbackslash r\textbackslash n" & Έναρξη επικοινωνίας με τον AVR & "OK\textbackslash r\textbackslash n" \\
+\hline
+"C\textbackslash r\textbackslash n" & Καθαρισμός πίνακα και οθόνης  & "OK\textbackslash r\textbackslash n" \\
+\hline
+"NXYVAL\textbackslash r\textbackslash n" &  Τιμή κελιού (VAL) sudoku[Χ][Υ], Χ,Υ $\in$ [1,9] & "OK\textbackslash r\textbackslash n" \\
+\hline
+"P\textbackslash r\textbackslash n" & Ξεκινάει να παίζει-λύνει το παιχνίδι & "OK\textbackslash r\textbackslash n" \\
+\hline
+"S\textbackslash r\textbackslash n" & Ρωτάει τον AVR αν τέλειωσε η λύση του Sudoku  & "D\textbackslash r\textbackslash n" αν έχει τελειώσει \\
+\hline
+"T\textbackslash r\textbackslash n" & Στέλνει τμές κελιών στο PC, μία τιμή κάθε φορά που λαμβάνει αυτή την εντολή & "NXYVAL\textbackslash r\textbackslash n" \\
+\hline
+"OK\textbackslash r\textbackslash n" & Ρωτάει τον AVR αν του έστειλε όλα τα δεδομένα & "D\textbackslash r\textbackslash n" \\
+\hline
+"B\textbackslash r\textbackslash n" & Σταμάτησε τους υπολογισμούς ή τη μετάδοση αποτελεσμάτων (warm start) & "OK\textbackslash r\textbackslash n" \\
+\hline
+"DXYVAL\textbackslash r\textbackslash n" & Στέλνει τα περιεχόμενα του κελιού sudoku[X][Y] & "NXYVAL\textbackslash r\textbackslash n" \\
+\hline
+\end{tabular}
+% \renewcommand{\arraystretch}{1.2}
+\caption{Progress Bar}
+\label{table:progressBar}
+\end{table}
+
+
+
 
 \subsection{Αλγόριθμός Επίλυσης Sudoku}
 
@@ -141,6 +191,11 @@ LED00-07 & $\geq 80$ \\
 
 
 \section{Έλεγχος σωστής λειτουργίας}
+Η σωστή λειτουργία του συστήματος ελέγθηκε για κάθε υποσύστημα ξεχωριστά. 
+
+Η επιβεβαίωση της ορθής λειτουργίας τόσο της σειριακής θύρας όσο και της εκτέλεσης των εντολών ΔΕΝ κατέστη δυνατή. Αυτό συνέβη καθώς η αναπτυξιακή πλακέτα STK500 η οποία μας δόθηκε είχε πρόβλημα στη μετάδοση δεδομένων πίσω στο PC.
+
+Η απεικόνιση της προόδου λειτούργησε κατόπιν πολλαπλών ελέγχων πάνω στη πλακέτα κάθως τόσο τα LEDs όσο και το PORT A λειουργούσαν ορθά.  
 
 
 

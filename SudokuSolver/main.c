@@ -97,7 +97,7 @@ int main(void)
 	sei();
 
 	// infinite loop
-    for(;;)
+	for(;;)
 	{
 		/* This is an eternal loop*/
 	}
@@ -181,7 +181,7 @@ ISR(TIMER2_COMP_vect, ISR_NAKED)
 			if (rcv_buff[rcv_cons+1] == 0x54 &&
 				rcv_buff[rcv_cons+2] == 0x0D &&
 				rcv_buff[rcv_cons+3] == 0x0A)
-			{	// Update rcv consumer.
+			{   // Update rcv consumer.
 				rcv_cons = rcv_cons + 4;
 				// respond with "OK\CR\LF"
 				send_response_OK();
@@ -277,11 +277,11 @@ ISR(USART_RXC_vect, ISR_NAKED)
 	if (rcv_prod - rcv_cons == BUFSZ)
 		goto USART_RXC_vect_RETI;
 
-// 	rcv_buff[rcv_prod%BUFSZ] = UDR;
-// 	++rcv_prod;
+//  rcv_buff[rcv_prod%BUFSZ] = UDR;
+//  ++rcv_prod;
 	rcv_buff[rcv_prod++] = UDR; // works iff BUFSZ == UINT8_MAX+1
 
-/*	// This code will trigger the Timer2 Comp intrpt. It will only happen
+/*  // This code will trigger the Timer2 Comp intrpt. It will only happen
 	// on buffer overflow. Until everything works this is disabled.
 	goto USART_RXC_vect_RETI;
 	
@@ -318,12 +318,12 @@ ISR(USART_TXC_vect, ISR_NAKED)
 		goto USART_TXC_vector_RETI;
 
 	// Wait for empty transmit buffer
-	while ( !( UCSRA & (1<<UDRE)) )	
+	while ( !( UCSRA & (1<<UDRE)) ) 
 
 	UDR  = transm_buff[transm_cons++]; // Sending character as a response
 
 	// transm_cons = (transm_cons+1)%BUFSZ; // Increasing the position of pointer in buffer transm_buffer
-	
+
 USART_TXC_vector_RETI:
 
 	SREG = save_sreg; // Loading the value of status register
@@ -350,13 +350,18 @@ USART_TXC_vector_RETI:
  */
 static inline void initUART()
 {
-	// Load upper 8-bits of the baud rate value into the high byte of the UBRR register
+	// Load upper 8-bits of the baud rate value into
+	// the high byte of the UBRR register
 	UBRRH = (BAUD_PRESCALE)>>8;
-	// Load lower 8-bits of the baud rate value into the low byte of the UBRR register
+	// Load lower 8-bits of the baud rate value into
+	// the low byte of the UBRR register
 	UBRRL = BAUD_PRESCALE;
-	UCSRB = (1 << RXEN) | (1 << TXEN); // Enable reception and transmission circuitry
-	UCSRC = (1 << URSEL) | (1 << UCSZ0) | (1 << UCSZ0); // Use 8-bit character sizes
-	UCSRB |= (1 << RXCIE) | (1 << TXCIE); // Enable the USART RXC and TXC interrupts
+	 // Enable reception and transmission circuitry
+	UCSRB = (1 << RXEN) | (1 << TXEN);
+	 // Use 8-bit character sizes
+	UCSRC = (1 << URSEL) | (1 << UCSZ1) | (1 << UCSZ0);
+	// Enable the USART RXC and TXC interrupts
+	UCSRB |= (1 << RXCIE) | (1 << TXCIE);
 }
 
 
@@ -416,10 +421,10 @@ static inline void checkSudoku()
 	{
 		uint8_t checksum[9] = {1,2,3,4,5,6,7,8,9};
 		uint8_t i, j = 0; // uint8_t i = 0; uint8_t j = 0;
-		
+
 		// check every COLUMN
 		for (i = 8; i >= 0; i--)
-		{	
+		{
 			for (j = 8; j >= 0; j--)
 			{
 				checksum[sudoku[j][i]-1] = 0;
@@ -430,7 +435,7 @@ static inline void checkSudoku()
 			do {
 				// If any checksum array elem is other than zero,
 				// then an 
-			 	test |= checksum[j-1];
+				test |= checksum[j-1];
 			} while (--j >= 0);
 		}
 
@@ -447,9 +452,9 @@ static inline void checkSudoku()
 			{
 				checksum[sudoku[j][i]-1] = 0;
 			}
-			
+
 			i = 9;
-			
+
 			do {
 				// If any checksum array elem is other than zero,
 				// then an
@@ -457,9 +462,9 @@ static inline void checkSudoku()
 			} while (--i >= 0);
 		}
 
-		// Check every Sudoku BOX (3x3)                     |
-		// access pattern: (left to right ---->, up to down |
-		//                                                  V
+		// Check every Sudoku BOX (3x3)                      |
+		// access pattern: ( left to right ---->, up to down | )
+		//                                                   V
 		// (9,9),(8,9),(7,9) | (9,8),(8,8),(7,8) | (9,7),(8,7),(7,7) 
 		// (6,9),(5,9),(4,9) | (6,8),(5,8),(4,8) | (6,7),(5,7),(4,7)
 		// (3,9),(2,9),(1,9) | (3,8),(2,8),(1,8) | (3,7),(2,7),(1,7)
@@ -471,7 +476,7 @@ static inline void checkSudoku()
 		// (9,3),(8,3),(7,3) | (9,2),(8,2),(7,2) | (9,1),(8,1),(7,1)
 		// (6,3),(5,3),(4,3) | (6,2),(5,2),(4,2) | (6,1),(5,1),(4,1)
 		// (3,3),(2,3),(1,3) | (3,2),(2,2),(1,2) | (3,1),(2,1),(1,1)
-		
+
 		for (uint8_t c = 2; c >= 0; c--)
 		{
 			for (uint8_t r = 2; r >= 0; r--)
@@ -618,5 +623,5 @@ static inline void send_response_OK()
 	transm_buff[++transm_prod] = tx_OK[2];
 	transm_buff[++transm_prod] = tx_OK[3];
 	transm_prod++;
-	
+
 }
