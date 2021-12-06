@@ -105,44 +105,44 @@
 
 \lstinputlisting[label=code:initUART, language=C, firstline=351, lastline=365, tabsize=2, caption=Κώδικας αρχικοποίησης UART]{main.c}
 
-\subsection{Επεξεργασία των εντολών}\
+\subsection{Επεξεργασία των εντολών}
+Οι εντολές που υποστηρίζει το ενσωματώμενο σύστημα παρατίθενται στο Table~\ref{table:commands}. Κατά το χρόνο σύνταξης της παρούσας αναφοράς, οι εντολές εκτελούνται στο Timer 2 interrupt. Συγκεκριμένα, κάθε φορά που εκτελείται το Timer 2 interrupt, διαβάζεται ο receive buffer και αποκωδικοποείται μία νέα εντολή, εφόσον υπάρχει. Η εκτέλεση των εντολών, γίνεται και αυτή στο timer interrupt το οποίο για εντολές με μεγάλο χρόνο εκτέλεσης, όπως το "play new game" 
 
-Οι εντολές που υποστηρίζει το ενσωματώμενο σύστήμα παρατίθονται παράκατω:
+%έχει πλεονεκτήματα και μειονεκτήματα. Αρχικά, ο έλεγχος που δίνει ο timer είναι ένα σημαντικό πλεονέκτημα, εφόσον μπορεί να ελεχθεί η περιοδικότητα εκτέλεσης των εντολών σε σχέση με τη λήψη και μετάδοση δεδομένων.
 
 \begin{table}[h!]
 \centering
 \begin{tabular}[c]{| p{0.3\textwidth} | p{0.3\textwidth} | p{0.3\textwidth} |}
 \hline
-Εντολή από PC & Ενέργεια Εντολής & Απάντηση προς PC \\
+\textbf{Εντολή από PC ή AVR} & \textbf{Ενέργεια εντολής} & \textbf{Απάντηση προς PC ή AVR} \\
 \hline
-"AT\textbackslash r\textbackslash n" & Έναρξη επικοινωνίας με τον AVR & "OK\textbackslash r\textbackslash n" \\
+"\textbf{AT}\textbackslash r\textbackslash n" (Από PC) & Έναρξη επικοινωνίας με τον AVR & "\textbf{OK}\textbackslash r\textbackslash n" (Προς AVR)\\
 \hline
-"C\textbackslash r\textbackslash n" & Καθαρισμός πίνακα και οθόνης  & "OK\textbackslash r\textbackslash n" \\
+"\textbf{C}\textbackslash r\textbackslash n" (Από PC) & Καθαρισμός πίνακα και οθόνης  & "\textbf{OK}\textbackslash r\textbackslash n" (Προς AVR)\\
 \hline
-"NXYVAL\textbackslash r\textbackslash n" &  Τιμή κελιού (VAL) sudoku[Χ][Υ], Χ,Υ $\in$ [1,9] & "OK\textbackslash r\textbackslash n" \\
+"\textbf{N}XYVAL\textbackslash r\textbackslash n" (Από PC) &  Τιμή κελιού (VAL) sudoku[Χ][Υ], Χ,Υ $\in$ [1,9] & "\textbf{OK}\textbackslash r\textbackslash n" (Προς AVR)\\
 \hline
-"P\textbackslash r\textbackslash n" & Ξεκινάει να παίζει-λύνει το παιχνίδι & "OK\textbackslash r\textbackslash n" \\
+"\textbf{P}\textbackslash r\textbackslash n" (Από PC) & Ξεκινάει να παίζει-λύνει το παιχνίδι & "\textbf{OK}\textbackslash r\textbackslash n" (Προς AVR)\\
 \hline
-"S\textbackslash r\textbackslash n" & Ρωτάει τον AVR αν τέλειωσε η λύση του Sudoku  & "D\textbackslash r\textbackslash n" αν έχει τελειώσει \\
+"\textbf{S}\textbackslash r\textbackslash n" (Από PC) & Ρωτάει τον AVR αν τέλειωσε η λύση του Sudoku  & "\textbf{D}\textbackslash r\textbackslash n" αν έχει τελειώσει (Προς AVR)\\
 \hline
-"T\textbackslash r\textbackslash n" & Στέλνει τμές κελιών στο PC, μία τιμή κάθε φορά που λαμβάνει αυτή την εντολή & "NXYVAL\textbackslash r\textbackslash n" \\
+"\textbf{T}\textbackslash r\textbackslash n" (Από PC) & Στέλνει τμές κελιών στο PC, μία τιμή κάθε φορά που λαμβάνει αυτή την εντολή & "\textbf{N}XYVAL\textbackslash r\textbackslash n" (Προς AVR)\\
 \hline
-"OK\textbackslash r\textbackslash n" & Ρωτάει τον AVR αν του έστειλε όλα τα δεδομένα & "D\textbackslash r\textbackslash n" \\
+"\textbf{D}\textbackslash r\textbackslash n" (Από AVR) & Ρωτάει τον AVR αν του έστειλε όλα τα δεδομένα & "\textbf{OK}\textbackslash r\textbackslash n" (Προς PC)\\
 \hline
-"B\textbackslash r\textbackslash n" & Σταμάτησε τους υπολογισμούς ή τη μετάδοση αποτελεσμάτων (warm start) & "OK\textbackslash r\textbackslash n" \\
+"\textbf{B}\textbackslash r\textbackslash n" (Από PC) & Σταμάτησε τους υπολογισμούς ή τη μετάδοση αποτελεσμάτων (warm start) & "\textbf{OK}\textbackslash r\textbackslash n" (Προς AVR)\\
 \hline
-"DXYVAL\textbackslash r\textbackslash n" & Στέλνει τα περιεχόμενα του κελιού sudoku[X][Y] & "NXYVAL\textbackslash r\textbackslash n" \\
+"\textbf{D}XYVAL\textbackslash r\textbackslash n" (Από PC) & Στέλνει τα περιεχόμενα του κελιού sudoku[X][Y] & "\textbf{N}XYVAL\textbackslash r\textbackslash n" (Προς AVR)\\
 \hline
 \end{tabular}
-% \renewcommand{\arraystretch}{1.2}
-\caption{Progress Bar}
-\label{table:progressBar}
+\renewcommand{\arraystretch}{1.2}
+\caption{Σετ εντολών}
+\label{table:commands}
 \end{table}
 
 
-
-
 \subsection{Αλγόριθμός Επίλυσης Sudoku}
+
 
 \subsection{Οθόνη - Progress Bar}
 Για την απεικόνιση της προόδου επίλυσης του Sudoku χρησιμοποιήθηκαν τα LEDs κοινής ανόδου (CA) της πλακέτας. Συγκεκριμένα κατά τη διάρκεια επίλυσης του Sudoku πραγματοποιείται περιοδικά έλεγχος σχετικά με το πόσα κελιά του πίνακα είναι συμπληρωμένα, με βάση αυτόν τον αριθμό ανάβει ο ανάλογος αριθμός LEDs (Table~\ref{table:progress_bar}).
@@ -175,7 +175,7 @@ LED00-07 & $\geq 80$ \\
 \end{tabular}
 % \renewcommand{\arraystretch}{1.2}
 \caption{Progress Bar}
-\label{table:progressBar}
+\label{table:progress_bar}
 \end{table}
 
 
@@ -195,11 +195,13 @@ LED00-07 & $\geq 80$ \\
 
 Η επιβεβαίωση της ορθής λειτουργίας τόσο της σειριακής θύρας όσο και της εκτέλεσης των εντολών ΔΕΝ κατέστη δυνατή. Αυτό συνέβη καθώς η αναπτυξιακή πλακέτα STK500 η οποία μας δόθηκε είχε πρόβλημα στη μετάδοση δεδομένων πίσω στο PC.
 
+Η διαπίστωση του προβλήμστος της πλάκετας έγινε δυνατή με τη χρήση πλάκετας άλλης ομάδας. Συγκεκριμένα ανατπύχθηκε ένα απλό πρόγραμμα το οποίο επιτρέφει στον αποστολέα τους χαρατκήρες που του έστειλε. Στη δική μας πλακέτα αυτό που επέστρεφε το πρόγραμμα ήταν σκουπίδια ενώ στη πλακέτα της άλλης όμάδας επιστρέφονταν οι χαρασκτήρες που είχαν μεταδοθεί. Επίσης διαπιστώθηκε ότι το καλώδιο δεν ήταν αυτός ή αιτία του προβλήματος χρησιμοποιώντας το καλώδιο της άλλης ομάδας. 
+
 Η απεικόνιση της προόδου λειτούργησε κατόπιν πολλαπλών ελέγχων πάνω στη πλακέτα κάθως τόσο τα LEDs όσο και το PORT A λειουργούσαν ορθά.  
 
 
 
-\section{Συμπεράσματα}
+% \section{Συμπεράσματα}
 
 
 \end{document}
