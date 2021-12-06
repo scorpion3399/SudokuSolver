@@ -124,3 +124,8 @@ ipch/
 *.xml
 *.aux
 *.toc
+
+report/
+# *.c
+*.gz
+*.toc

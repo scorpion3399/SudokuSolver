@@ -59,6 +59,7 @@ const uint8_t tx_OK[4] = {0x4F,0x4B,0x0D,0x0A};
 
 // Subroutines
 static inline void initUART();
+static inline void process();
 static inline void checkSudoku();
 static inline void storeClue();
 static inline void clear_table();
@@ -68,7 +69,6 @@ static inline void send_response_OK();
 
 // Interrupt Service routines
 void TIMER0_COMP_vect();
-void TIMER2_COMP_vect();
 void USART_RXC_vector();
 void USART_TXC_vector();
 
@@ -99,7 +99,7 @@ int main(void)
 	// infinite loop
 	for(;;)
 	{
-		/* This is an eternal loop*/
+		process();
 	}
 }
 
@@ -148,106 +148,6 @@ ISR(TIMER0_COMP_vect, ISR_NAKED)
 	}
 	
 	TCNT0 = 0; // reset TCNT0
-	
-	SREG = save_sreg; // restore SREG
-	
-	reti(); // return from interrupt
-}
-
-
-/**
- *
- * Subroutine: Interrupt Service Routine for Timer 2 Compare
- * 
- * Input: None
- * 
- * Returns: None
- *
- * Description: This ISR process each command receiving from USART.
- *
- */
-
-ISR(TIMER2_COMP_vect, ISR_NAKED)
-{
-	uint8_t save_sreg = SREG; // save SREG
-	
-	switch(rcv_buff[rcv_cons])
-	{
-		case 0x41: // 'A', "AT\r\n", sends response "OK\r\n"
-			
-			// uint8_t cmd[3] = {0x54,0x0D,0x0A}; // char cmd[3] = "T\r\n";
-			// cmd bytes are hardcoded because, there can't be a var
-			// definition inside a case. Maybe global or PROGMEM string?
-			if (rcv_buff[rcv_cons+1] == 0x54 &&
-				rcv_buff[rcv_cons+2] == 0x0D &&
-				rcv_buff[rcv_cons+3] == 0x0A)
-			{   // Update rcv consumer.
-				rcv_cons = rcv_cons + 4;
-				// respond with "OK\CR\LF"
-				send_response_OK();
-
-			} else {
-				// Eat everything until an '\LF' is found because the cmd
-				// is not correct.
-				do { } while ( rcv_buff[++rcv_cons] != 0x4A );
-			}
-			break;
-
-		case 0x43: // 'C' "C\r\n"
-		// "C\r\n", clears the Sudoku table and notifies PC ("OK\r\n")
-
-			if(rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A)
-			{
-				rcv_cons += 3;
-
-				clear_table();
-				send_response_OK();
-			}
-
-			break;
-
-		case 0x4E: // 'N', "N<x><y><val>\r\n", which stores a clue and returns OK
-			
-			storeClue();
-			break;
-
-		case 0x50: // 'P' "P\r\n"
-
-			if(rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A)
-			{
-				rcv_cons += 3;
-
-				play_game();
-				send_response_OK();
-			}
-
-			break;
-
-		case 0x53: // 'S', "S\r\n", check if the Sudoku is correctly solved.
-			checkSudoku();
-			break;
-
-		case 0x54: // 'T' "T\r\n"
-
-			if(rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A)
-			{
-				rcv_cons += 3;
-
-				send_table();
-				send_response_OK();
-			}
-
-			break;
-		
-		case 0x4F: // 'O', "OK\r\n"
-			
-			break;
-		
-		default: // no matching cmd, eat bytes
-			
-			do { } while ( rcv_buff[++rcv_cons] != 0x4A );
-			break;
-	}
 	
 	SREG = save_sreg; // restore SREG
 	
@@ -345,7 +245,7 @@ USART_TXC_vector_RETI:
  * 
  * Returns: nothing
  * 
- * Description: To begin
+ * Description: To begin UART reception and transmission.
  * 
  */
 static inline void initUART()
@@ -362,6 +262,104 @@ static inline void initUART()
 	UCSRC = (1 << URSEL) | (1 << UCSZ1) | (1 << UCSZ0);
 	// Enable the USART RXC and TXC interrupts
 	UCSRB |= (1 << RXCIE) | (1 << TXCIE);
+}
+
+
+
+/**
+ * 
+ * Subroutine: process();
+ * 
+ * Input: none
+ * 
+ * Returns: nothing
+ * 
+ * Description: To process commands.
+ * 
+ */
+static inline void process()
+{
+	switch(rcv_buff[rcv_cons])
+	{
+		case 0x41: // 'A', "AT\r\n", sends response "OK\r\n"
+			
+			// uint8_t cmd[3] = {0x54,0x0D,0x0A}; // char cmd[3] = "T\r\n";
+			// cmd bytes are hardcoded because, there can't be a var
+			// definition inside a case. Maybe global or PROGMEM string?
+			if (rcv_buff[rcv_cons+1] == 0x54 &&
+				rcv_buff[rcv_cons+2] == 0x0D &&
+				rcv_buff[rcv_cons+3] == 0x0A)
+			{   // Update rcv consumer.
+				rcv_cons = rcv_cons + 4;
+				// respond with "OK\CR\LF"
+				send_response_OK();
+
+			} else {
+				// Eat everything until an '\LF' is found because the cmd
+				// is not correct.
+				do { } while ( rcv_buff[++rcv_cons] != 0x4A );
+			}
+			break;
+
+		case 0x43: // 'C' "C\r\n"
+		// "C\r\n", clears the Sudoku table and notifies PC ("OK\r\n")
+
+			if(rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A)
+			{
+				rcv_cons += 3;
+
+				clear_table();
+				send_response_OK();
+			}
+
+			break;
+
+		case 0x4E: // 'N', "N<x><y><val>\r\n", which stores a clue and returns OK
+			
+			storeClue();
+			break;
+
+		case 0x50: // 'P' "P\r\n"
+
+			if(rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A)
+			{
+				rcv_cons += 3;
+
+				play_game();
+				send_response_OK();
+			}
+
+			break;
+
+		case 0x53: // 'S', "S\r\n", check if the Sudoku is correctly solved.
+			checkSudoku();
+			break;
+
+		case 0x54: // 'T' "T\r\n"
+
+			if(rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A)
+			{
+				rcv_cons += 3;
+
+				send_table();
+				send_response_OK();
+				if (col_position == 9 && row_position == 9)
+				{
+					// store "D\r\n" in the transmit buff
+					transm_buff[transm_prod] = 0x44;
+					transm_buff[++transm_prod] = tx_OK[2];
+					transm_buff[++transm_prod] = tx_OK[3];
+					transm_prod++;
+				}
+			}
+
+			break;
+		
+		default: // no matching cmd, eat bytes
+			
+			do { } while ( rcv_buff[++rcv_cons] != 0x4A );
+			break;
+	}
 }
 
 
@@ -565,32 +563,32 @@ static inline void send_table()
 {
 	// Sending each time a cell in the form N<X><Y><CR><LF>
 
-		transm_buff[transm_prod] = 0x30+row_position;
-		transm_prod++;
-		transm_buff[transm_prod] = 0x30+col_position;
-		transm_prod++;
-		transm_buff[transm_prod] = 0x30+sudoku[row_position-1][col_position-1]; // This needs a small modification
-		transm_prod++;
-		transm_buff[transm_prod] = 0x0D;
-		transm_prod++;
-		transm_buff[transm_prod] = 0x0A;
-		transm_prod++;
+	transm_buff[transm_prod] = 0x30+row_position;
+	transm_prod++;
+	transm_buff[transm_prod] = 0x30+col_position;
+	transm_prod++;
+	transm_buff[transm_prod] = 0x30+sudoku[row_position-1][col_position-1];
+	transm_prod++;
+	transm_buff[transm_prod] = 0x0D;
+	transm_prod++;
+	transm_buff[transm_prod] = 0x0A;
+	transm_prod++;
 
 	// Increasing the global positions
 
-		col_position--;
+	col_position--;
 
-		if(col_position == 0){
+	if(col_position == 0)
+	{
+		col_position = 9;
+		row_position--;
+	}
 
-			col_position = 9;
-			row_position--;
-		}
-
-		if(row_position == 0){
-			row_position = 9;
-			col_position = 9;
-		}
-
+	if(row_position == 0)
+	{
+		row_position = 9;
+		col_position = 9;
+	}
 }
 
 /**
