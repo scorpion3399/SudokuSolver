@@ -8,7 +8,7 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
-#define F_CPU 1843200UL
+#define F_CPU 10000000UL
 #define USART_BAUDRATE 9600
 #define BAUD_PRESCALE F_CPU/16/USART_BAUDRATE - 1
 #define BUFSZ 256
@@ -69,8 +69,8 @@ static inline void send_response_OK();
 
 // Interrupt Service routines
 void TIMER0_COMP_vect();
-void USART_RXC_vector();
-void USART_TXC_vector();
+void USART_RXC_vect();
+void USART_TXC_vect();
 
 
 int main(void)
@@ -88,8 +88,6 @@ int main(void)
 	TCCR0 = (1<<CS02); ; // presc val. 256
 	OCR0 = cMaxCnt; // max tim/cnt0 value 150
 	TIMSK |= (1<<OCIE0); // enable TIM0_COMP interrupt
-	TCCR2 = (1<<CS22)|(1<<CS21); // presc val. 1024
-	OCR2 = cMaxCnt; // max tim/cnt2 value
 
 	// UART init
 	initUART();
