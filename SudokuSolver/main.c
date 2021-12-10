@@ -8,7 +8,10 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
+#ifndef F_CPU
 #define F_CPU 1843200UL
+#endif // F_CPU
+
 #define USART_BAUDRATE 9600
 #define BAUD_PRESCALE F_CPU/16/USART_BAUDRATE - 1
 #define BUFSZ 256

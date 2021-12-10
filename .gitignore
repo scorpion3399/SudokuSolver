@@ -123,10 +123,8 @@ ipch/
 *.cproj
 *.xml
 *.aux
-*.toc
 
 report/
 *.c
 *.gz
 *.toc
-
