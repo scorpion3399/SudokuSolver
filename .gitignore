@@ -60,6 +60,8 @@ dkms.conf
 *.user
 *.userosscache
 *.sln.docstates
+*.atsln
+*.atsuo
 
 # Build results
 [Dd]ebug/
@@ -122,3 +124,12 @@ ipch/
 # Visual Studio Project Files
 *.atsuo
 *.atsln
+*.cproj
+*.xml
+*.aux
+*.toc
+
+report/
+*.c
+*.gz
+*.toc
