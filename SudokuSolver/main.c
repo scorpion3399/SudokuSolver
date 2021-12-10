@@ -216,7 +216,8 @@ ISR(USART_TX_vect, ISR_NAKED)
 		goto USART_TXC_vector_RETI;
 
 	// Wait for empty transmit buffer
-	while ( !( UCSR0A & (1<<UDRE0)) );
+	// while ( !( UCSR0A & (1<<UDRE0)) );
+	while ( (UCSR0A & 0x20) != 0x20 );
 
 	UDR0  = transm_buff[transm_cons++]; // Sending character as a response
 

@@ -87,10 +87,10 @@ ipch/
 *.eep
 *.cproj
 *.xml
-*.aux
-*.toc
 
 report/
-# *.c
+*.c
+*.aux
 *.gz
 *.toc
+*.out
