@@ -175,8 +175,7 @@ ISR(USART_RX_vect, ISR_NAKED)
 	if (rcv_prod - rcv_cons == BUFSZ)
 		goto USART_RXC_vect_RETI;
 
-//  rcv_buff[rcv_prod%BUFSZ] = UDR;
-//  ++rcv_prod;
+// 	rcv_buff[(rcv_prod++)%BUFSZ] = UDR0;
 	rcv_buff[rcv_prod++] = UDR0; // works iff BUFSZ == UINT8_MAX+1
 
 /*  // This code will trigger the Timer2 Comp intrpt. It will only happen
@@ -228,7 +227,6 @@ USART_TXC_vector_RETI:
 	SREG = save_sreg; // Loading the value of status register
 
 	reti();
-
 }
 
 
