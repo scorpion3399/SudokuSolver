@@ -17,8 +17,8 @@
 #define NLeds 8 // num of LEDs, for the progess of the solver
 #define cMaxCnt 151-1 // Max Timer/Counter0 val.
 // #define cMaxCnt2 151-1 // Max Timer/Counter2 val.
-#define pLedOut PORTA
-#define pLedDdr DDRA
+#define pLedOut PORTB
+#define pLedDdr DDRB
 
 
 // TODO: Throw them all in a struct. Has some size optimizations.
@@ -69,8 +69,8 @@ static inline void send_response_OK();
 
 // Interrupt Service routines
 void TIMER0_COMP_vect();
-void USART_RXC_vector();
-void USART_TXC_vector();
+void USART_RX_vect();
+void USART_TX_vect();
 
 
 int main(void)
@@ -85,11 +85,9 @@ int main(void)
 	pLedOut = 0xFF; // LEDs off
 
 	// Timer settings
-	TCCR0 = (1<<CS02); ; // presc val. 256
-	OCR0 = cMaxCnt; // max tim/cnt0 value 150
-	TIMSK |= (1<<OCIE0); // enable TIM0_COMP interrupt
-	TCCR2 = (1<<CS22)|(1<<CS21); // presc val. 1024
-	OCR2 = cMaxCnt; // max tim/cnt2 value
+	TCCR0B |= (1<<CS02); ; // presc val. 256
+	OCR0A = cMaxCnt; // max tim/cnt0 value 150
+	TIMSK0 |= (1<<OCIE0A); // enable TIM0_COMP interrupt
 
 	// UART init
 	initUART();
@@ -120,7 +118,7 @@ int main(void)
  * Description: This ISR displays the progress of the sudoku solver in the LED00-LED07.
  * 
  */
-ISR(TIMER0_COMP_vect, ISR_NAKED)
+ISR(TIMER0_COMPA_vect, ISR_NAKED)
 {
 	uint8_t save_sreg = SREG; // save SREG
 
@@ -167,7 +165,7 @@ ISR(TIMER0_COMP_vect, ISR_NAKED)
  * 
  */
 
-ISR(USART_RXC_vect, ISR_NAKED)
+ISR(USART_RX_vect, ISR_NAKED)
 {
 	uint8_t save_sreg = SREG;
 
@@ -179,7 +177,7 @@ ISR(USART_RXC_vect, ISR_NAKED)
 
 //  rcv_buff[rcv_prod%BUFSZ] = UDR;
 //  ++rcv_prod;
-	rcv_buff[rcv_prod++] = UDR; // works iff BUFSZ == UINT8_MAX+1
+	rcv_buff[rcv_prod++] = UDR0; // works iff BUFSZ == UINT8_MAX+1
 
 /*  // This code will trigger the Timer2 Comp intrpt. It will only happen
 	// on buffer overflow. Until everything works this is disabled.
@@ -210,7 +208,7 @@ USART_RXC_vect_RETI:
  * 
  */
 
-ISR(USART_TXC_vect, ISR_NAKED)
+ISR(USART_TX_vect, ISR_NAKED)
 {
 	uint8_t save_sreg = SREG; // Storing the value of status register
 
@@ -218,9 +216,9 @@ ISR(USART_TXC_vect, ISR_NAKED)
 		goto USART_TXC_vector_RETI;
 
 	// Wait for empty transmit buffer
-	while ( !( UCSRA & (1<<UDRE)) ) 
+	while ( !( UCSR0A & (1<<UDRE0)) );
 
-	UDR  = transm_buff[transm_cons++]; // Sending character as a response
+	UDR0  = transm_buff[transm_cons++]; // Sending character as a response
 
 	// transm_cons = (transm_cons+1)%BUFSZ; // Increasing the position of pointer in buffer transm_buffer
 
@@ -252,16 +250,16 @@ static inline void initUART()
 {
 	// Load upper 8-bits of the baud rate value into
 	// the high byte of the UBRR register
-	UBRRH = (BAUD_PRESCALE)>>8;
+	UBRR0H = (BAUD_PRESCALE)>>8;
 	// Load lower 8-bits of the baud rate value into
 	// the low byte of the UBRR register
-	UBRRL = BAUD_PRESCALE;
+	UBRR0L = BAUD_PRESCALE;
 	 // Enable reception and transmission circuitry
-	UCSRB = (1 << RXEN) | (1 << TXEN);
+	UCSR0B = (1 << RXEN0) | (1 << TXEN0);
 	 // Use 8-bit character sizes
-	UCSRC = (1 << URSEL) | (1 << UCSZ1) | (1 << UCSZ0);
+	UCSR0C = (1 << UCSZ01) | (1 << UCSZ00);
 	// Enable the USART RXC and TXC interrupts
-	UCSRB |= (1 << RXCIE) | (1 << TXCIE);
+	UCSR0B |= (1 << RXCIE0) | (1 << TXCIE0);
 }
 
 
