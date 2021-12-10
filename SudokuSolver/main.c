@@ -8,7 +8,7 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
-#define F_CPU 10000000UL
+#define F_CPU 1843200UL
 #define USART_BAUDRATE 9600
 #define BAUD_PRESCALE F_CPU/16/USART_BAUDRATE - 1
 #define BUFSZ 256
@@ -216,7 +216,8 @@ ISR(USART_TXC_vect, ISR_NAKED)
 		goto USART_TXC_vector_RETI;
 
 	// Wait for empty transmit buffer
-	while ( !( UCSRA & (1<<UDRE)) ) 
+	// while ( !( (UCSRA & 0x20) == 0x20) );
+	while ( (UCSRA & 0x20) != 0x20 );
 
 	UDR  = transm_buff[transm_cons++]; // Sending character as a response
 

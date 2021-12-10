@@ -126,6 +126,7 @@ ipch/
 *.toc
 
 report/
-# *.c
+*.c
 *.gz
 *.toc
+
