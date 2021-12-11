@@ -124,7 +124,7 @@ ipch/
 *.xml
 *.aux
 
-report/
-*.c
-*.gz
-*.toc
+[Rr]eport/*.c
+[Rr]eport/*.gz
+# report/*.out # already exists for C compiler executables
+[Rr]eport/*.toc
