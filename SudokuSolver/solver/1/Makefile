@@ -1,4 +1,4 @@
-TARGET = solver
+TARGET = solverj
 LIBS = #-lm # -ldl
 CC = gcc
 CFLAGS = -g3 -Wall # -O3

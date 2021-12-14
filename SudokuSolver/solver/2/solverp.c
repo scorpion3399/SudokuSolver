@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#define mytype_t int
+#define mytype_t uint8_t
 
 typedef struct implications {
 	mytype_t x;
@@ -21,10 +21,31 @@ mytype_t count_elements(mytype_t [9], mytype_t *);
 void undoImplications(mytype_t [9][9], implication *);
 void array_copy(mytype_t [9], mytype_t [9]);
 
+void print_grid(mytype_t [9][9]);
 
-mytype_t backtracks, backtracks_opt = 0;
+// to test the sudoku solving algorithm
+void test();
+void testSimple();
 
-mytype_t position = 0;
+// the puzzles
+mytype_t easy[9][9];
+mytype_t easy2[9][9];
+mytype_t inter[9][9];
+mytype_t inter2[9][9];
+mytype_t diff[9][9];
+mytype_t hard[9][9];
+mytype_t easy_opt[9][9];
+mytype_t easy2_opt[9][9];
+mytype_t inter_opt[9][9];
+mytype_t inter2_opt[9][9];
+mytype_t diff_opt[9][9];
+mytype_t hard_opt[9][9];
+
+// to count the backtracks, a way to define the peformance of the algorithm
+int backtracks, backtracks_opt = 0;
+
+// tou iasona???
+int position = 0;
 
 mytype_t sectors[9][4] = {
 	{0, 3, 0, 3},{3, 6, 0, 3},{6, 9, 0, 3},
@@ -56,7 +77,7 @@ mytype_t find_empty_cell(mytype_t puzzle[9][9], mytype_t *row, mytype_t *column)
 	{
 		for (mytype_t y = 0; y < 9; y++)
 		{
-			if (puzzle[x][y] == 0)
+			if (!puzzle[x][y])
 			{
 				*row = x;
 				*column = y;
@@ -76,7 +97,6 @@ void makeImplications(mytype_t puzzle[9][9], mytype_t row, mytype_t col, mytype_
 	position++;
 
 	puzzle[row][col] = guess;
-	mytype_t length = 9;
 	mytype_t index = 0;
 		
 	mytype_t value;
@@ -85,7 +105,7 @@ void makeImplications(mytype_t puzzle[9][9], mytype_t row, mytype_t col, mytype_
 	implication impl[9];
 
 	// Removing clues from possible clues which has already been in the ith sector with clue (row,col)
-	for(mytype_t i = 0; i < length; i++)
+	for(mytype_t i = 0; i < 9; i++)
 	{
 		possible_clues[0] = 1;
 		possible_clues[1] = 2;
@@ -107,7 +127,7 @@ void makeImplications(mytype_t puzzle[9][9], mytype_t row, mytype_t col, mytype_
 					for(mytype_t m = 0; m < 9; m++)
 					{
 						if(possible_clues[m] == puzzle[x][y])
-							possible_clues[m] = -1;
+							possible_clues[m] = 0;
 					}
 				}
 		}
@@ -135,7 +155,7 @@ void makeImplications(mytype_t puzzle[9][9], mytype_t row, mytype_t col, mytype_
 		}
 
 		// For each sector 
-		for(mytype_t j = 0; j < length; j++)
+		for(mytype_t j = 0; j < index; j++)
 		{
 		// Finding the set of clues on the row corresponding to j clue in  ith sector
 		// and removing them from the set of possible clues of implication
@@ -148,7 +168,7 @@ void makeImplications(mytype_t puzzle[9][9], mytype_t row, mytype_t col, mytype_
 				for(mytype_t m = 0; m < 9; m++)
 				{
 					if(impl[j].possible_clues[m] == puzzle[impl[j].x][y])
-						impl[j].possible_clues[m] = -1;
+						impl[j].possible_clues[m] = 0;
 				}
 			}
 
@@ -162,7 +182,7 @@ void makeImplications(mytype_t puzzle[9][9], mytype_t row, mytype_t col, mytype_
 			for(mytype_t m = 0; m < 9; m++)
 			{
 				if(impl[j].possible_clues[m] == puzzle[x][impl[j].y])
-					impl[j].possible_clues[m] = -1;
+					impl[j].possible_clues[m] = 0;
 			}
 		}
 
@@ -173,7 +193,7 @@ void makeImplications(mytype_t puzzle[9][9], mytype_t row, mytype_t col, mytype_
 				puzzle[impl[j].x][impl[j].y] = value;
 				imply[position].x = impl[j].x;
 				imply[position].y = impl[j].y;
-				imply[position].possible_clues[0] =value;
+				imply[position].possible_clues[0] = value;
 				position++;
 			}
 		}
@@ -248,10 +268,9 @@ mytype_t solve(mytype_t puzzle[9][9])
 			puzzle[row][column] = guess;
 			if (solve(puzzle) == 1)
 				return 1;
-			else {
-				puzzle[row][column] = 0;
-				backtracks++;
-			}
+			
+			backtracks++;
+			puzzle[row][column] = 0;
 		}
 	}
 	return 0;
@@ -264,45 +283,27 @@ mytype_t solve_opt(mytype_t puzzle[9][9])
 
 	implication * impl = malloc(700);
 
-	if (impl == NULL)
-	{
-		printf("Out of memory!!\n");
-		return -1;
-	}
 
-	if(find_empty_cell(puzzle, &row, &column) == 0) return 1;
+	if(!find_empty_cell(puzzle, &row, &column)) return 1;
 
 	for (mytype_t guess = 1; guess < 10; guess++)
 	{
-		if (valid(puzzle, row, column, guess) == 1)
+		if (valid(puzzle, row, column, guess))
 		{
 			makeImplications(puzzle, row, column, guess, impl);
-						printf("SHIT\n");
-			if (solve_opt(puzzle) == 1)
+			// printf("SHIT\n");
+			if (solve_opt(puzzle))
 				return 1;
-			else {
-				undoImplications(puzzle, impl);
-				backtracks_opt++;
-			}
-
-			free(impl);
+			
+			backtracks_opt++;
+			undoImplications(puzzle, impl);
 		}
 	}
+	
+	//free(impl);
+
 	return 0;
 }
-
-
-mytype_t inp0_opt[9][9] = {
-	{1,7,4,0,9,0,6,0,0},
-	{0,0,0,0,3,8,1,5,7},
-	{5,3,0,7,0,1,0,0,4},
-	{0,0,7,3,4,9,8,0,0},
-	{8,4,0,5,0,0,3,6,0},
-	{3,0,5,0,0,6,4,7,0},
-	{2,8,6,9,0,0,0,0,1},
-	{0,0,0,6,2,7,0,3,8},
-	{0,5,3,0,8,0,0,9,6}
-};
 
 
 
@@ -328,22 +329,311 @@ void print_grid(mytype_t A[9][9])
 
 int main()
 {
-	solve_opt(inp0_opt);
-	// if (solve_opt(inp0_opt))
+	// printf("\nThe Sudoku before attempting to solve it:\n");
+	// print_grid(easy_opt);
+
+	// if (solve_opt(easy_opt))
 	// {
-	// 	print_grid(inp0_opt);
+	// 	printf("\nThe solution of the Sudoku:\n");
+	// 	print_grid(easy);
 	// 	printf("Backtracks: %d\n", backtracks);
 	// }
 	// else
-	// 	printf("\n\nNO SOLUTION FOUND with the optimized algorithm!\n\n");
+	// 	printf("\n\nNO SOLUTION FOUND with the simple algorithm!\n\n");
+	
+	// backtracks = 0;
 
-	backtracks_opt = 0;
+	test();
 
 	return 0;
 }
 
 
-mytype_t inp0[9][9] = {
+
+
+void test()
+{/*
+	printf("\nThe easy Sudoku before attempting to solve it:\n");
+	print_grid(easy);
+
+	if (solve(easy))
+	{
+		printf("\nThe solution of the Sudoku:\n");
+		print_grid(easy);
+		printf("Backtracks: %d\n", backtracks);
+	}
+	else
+		printf("\n\nNO SOLUTION FOUND with the simple algorithm!\n\n");
+	
+	backtracks = 0;
+
+	if (solve_opt(easy_opt))
+	{
+		printf("\nThe solution of the Sudoku:\n");
+		print_grid(easy_opt);
+		printf("Backtracks: %d\n", backtracks);
+	}
+	else
+		printf("\n\nNO SOLUTION FOUND with the optimized algorithm!\n\n");
+
+	backtracks_opt = 0;
+
+
+
+
+
+	printf("\nThe easy2 Sudoku before attempting to solve it:\n");
+	print_grid(easy2);
+
+	if (solve(easy2))
+	{
+		printf("\nThe solution of the Sudoku:\n");
+		print_grid(easy2);
+		printf("Backtracks: %d\n", backtracks);
+	}
+	else
+		printf("\n\nNO SOLUTION FOUND with the simple algorithm!\n\n");
+	
+	backtracks = 0;
+
+	if (solve_opt(easy2_opt))
+	{
+		printf("\nThe solution of the Sudoku:\n");
+		print_grid(easy2_opt);
+		printf("Backtracks: %d\n", backtracks);
+	}
+	else
+		printf("\n\nNO SOLUTION FOUND with the optimized algorithm!\n\n");
+
+	backtracks_opt = 0;
+
+
+
+
+
+	printf("\nThe inter Sudoku before attempting to solve it:\n");
+	print_grid(inter);
+
+	if (solve(inter))
+	{
+		printf("\nThe solution of the Sudoku:\n");
+		print_grid(inter);
+		printf("Backtracks: %d\n", backtracks);
+	}
+	else
+		printf("\n\nNO SOLUTION FOUND with the simple algorithm!\n\n");
+	
+	backtracks = 0;
+
+	if (solve_opt(inter_opt))
+	{
+		printf("\nThe solution of the Sudoku:\n");
+		print_grid(inter_opt);
+		printf("Backtracks: %d\n", backtracks);
+	}
+	else
+		printf("\n\nNO SOLUTION FOUND with the optimized algorithm!\n\n");
+
+	backtracks_opt = 0;
+
+
+
+
+
+	printf("\nThe inter2 Sudoku before attempting to solve it:\n");
+	print_grid(inter2);
+
+	if (solve(inter2))
+	{
+		printf("\nThe solution of the Sudoku:\n");
+		print_grid(inter2);
+		printf("Backtracks: %d\n", backtracks);
+	}
+	else
+		printf("\n\nNO SOLUTION FOUND with the simple algorithm!\n\n");
+	
+	backtracks = 0;
+
+	if (solve_opt(inter2_opt))
+	{
+		printf("\nThe solution of the Sudoku:\n");
+		print_grid(inter2_opt);
+		printf("Backtracks: %d\n", backtracks);
+	}
+	else
+		printf("\n\nNO SOLUTION FOUND with the optimized algorithm!\n\n");
+
+	backtracks_opt = 0;
+
+
+	*/
+
+
+
+	printf("\nThe diff Sudoku before attempting to solve it:\n");
+	print_grid(hard);
+
+	if (solve(hard))
+	{
+		printf("\nThe solution of the Sudoku:\n");
+		print_grid(hard);
+		printf("Backtracks: %d\n", backtracks);
+	}
+	else
+		printf("\n\nNO SOLUTION FOUND with the simple algorithm!\n\n");
+	
+	backtracks = 0;
+
+	if (solve_opt(hard_opt))
+	{
+		printf("\nThe solution of the Sudoku:\n");
+		print_grid(hard_opt);
+		printf("Backtracks: %d\n", backtracks);
+	}
+	else
+		printf("\n\nNO SOLUTION FOUND with the optimized algorithm!\n\n");
+
+	backtracks_opt = 0;
+
+
+
+
+
+	printf("\nThe hard Sudoku before attempting to solve it:\n");
+	print_grid(diff);
+
+	if (solve(diff))
+	{
+		printf("\nThe solution of the Sudoku:\n");
+		print_grid(diff);
+		printf("Backtracks: %d\n", backtracks);
+	}
+	else
+		printf("\n\nNO SOLUTION FOUND with the simple algorithm!\n\n");
+	
+	backtracks = 0;
+
+	if (solve_opt(diff_opt))
+	{
+		printf("\nThe solution of the Sudoku:\n");
+		print_grid(diff_opt);
+		printf("Backtracks: %d\n", backtracks);
+	}
+	else
+		printf("\n\nNO SOLUTION FOUND with the optimized algorithm!\n\n");
+
+	backtracks_opt = 0;
+}
+
+
+
+
+
+
+
+
+
+void testSimple()
+{
+	printf("\nThe Sudoku before attempting to solve it:\n");
+	print_grid(easy);
+
+	if (solve(easy))
+	{
+		printf("\nThe solution of the Sudoku:\n");
+		print_grid(easy);
+		printf("Backtracks: %d\n", backtracks);
+	}
+	else
+		printf("\n\nNO SOLUTION FOUND with the simple algorithm!\n\n");
+	
+	backtracks = 0;
+
+
+	printf("\nThe Sudoku before attempting to solve it:\n");
+	print_grid(easy2);
+
+	if (solve(easy2))
+	{
+		printf("\nThe solution of the Sudoku:\n");
+		print_grid(easy2);
+		printf("Backtracks: %d\n", backtracks);
+	}
+	else
+		printf("\n\nNO SOLUTION FOUND with the simple algorithm!\n\n");
+	
+	backtracks = 0;
+
+
+	printf("\nThe Sudoku before attempting to solve it:\n");
+	print_grid(inter);
+
+	if (solve(inter))
+	{
+		printf("\nThe solution of the Sudoku:\n");
+		print_grid(inter);
+		printf("Backtracks: %d\n", backtracks);
+	}
+	else
+		printf("\n\nNO SOLUTION FOUND with the simple algorithm!\n\n");
+	
+	backtracks = 0;
+
+
+	printf("\nThe Sudoku before attempting to solve it:\n");
+	print_grid(inter2);
+
+	if (solve(inter2))
+	{
+		printf("\nThe solution of the Sudoku:\n");
+		print_grid(inter2);
+		printf("Backtracks: %d\n", backtracks);
+	}
+	else
+		printf("\n\nNO SOLUTION FOUND with the simple algorithm!\n\n");
+	
+	backtracks = 0;
+
+
+	printf("\nThe Sudoku before attempting to solve it:\n");
+	print_grid(diff);
+
+	if (solve(diff))
+	{
+		printf("\nThe solution of the Sudoku:\n");
+		print_grid(diff);
+		printf("Backtracks: %d\n", backtracks);
+	}
+	else
+		printf("\n\nNO SOLUTION FOUND with the simple algorithm!\n\n");
+	
+	backtracks = 0;
+
+
+	printf("\nThe Sudoku before attempting to solve it:\n");
+	print_grid(hard);
+
+	if (solve(hard))
+	{
+		printf("\nThe solution of the Sudoku:\n");
+		print_grid(hard);
+		printf("Backtracks: %d\n", backtracks);
+	}
+	else
+		printf("\n\nNO SOLUTION FOUND with the simple algorithm!\n\n");
+
+	backtracks = 0;
+
+}
+
+
+
+
+
+
+
+
+mytype_t easy[9][9] = {
 	{1,7,4,0,9,0,6,0,0},
 	{0,0,0,0,3,8,1,5,7},
 	{5,3,0,7,0,1,0,0,4},
@@ -355,31 +645,7 @@ mytype_t inp0[9][9] = {
 	{0,5,3,0,8,0,0,9,6}
 };
 
-mytype_t inp1[9][9] = {
-	{5,1,7,6,0,0,0,3,4},
-	{2,8,9,0,0,4,0,0,0},
-	{3,4,6,2,0,5,0,9,0},
-	{6,0,2,0,0,0,0,1,0},
-	{0,3,8,0,0,6,0,4,7},
-	{0,0,0,0,0,0,0,0,0},
-	{0,9,0,0,0,0,0,7,8},
-	{7,0,3,4,0,0,5,6,0},
-	{0,0,0,0,0,0,0,0,0}
-};
-
-mytype_t inp2[9][9] = {
-	{5,1,7,6,0,0,0,3,4},
-	{0,8,9,0,0,4,0,0,0},
-	{3,0,6,2,0,5,0,9,0},
-	{6,0,0,0,0,0,0,1,0},
-	{0,3,0,0,0,6,0,4,7},
-	{0,0,0,0,0,0,0,0,0},
-	{0,9,0,0,0,0,0,7,8},
-	{7,0,3,4,0,0,5,6,0},
-	{0,0,0,0,0,0,0,0,0}
-};
-
-mytype_t inp3[9][9] = {
+mytype_t easy2[9][9] = {
 	{1,0,5,7,0,2,6,3,8},
 	{2,0,0,0,0,6,0,0,5},
 	{0,6,3,8,4,0,2,1,0},
@@ -391,16 +657,28 @@ mytype_t inp3[9][9] = {
 	{3,2,6,1,0,7,0,0,4}
 };
 
-mytype_t hard[9][9] = {
-	{8,5,0,0,0,2,4,0,0},
-	{7,2,0,0,0,0,0,0,9},
-	{0,0,4,0,0,0,0,0,0},
-	{0,0,0,1,0,7,0,0,2},
-	{3,0,5,0,0,0,9,0,0},
-	{0,4,0,0,0,0,0,0,0},
-	{0,0,0,0,8,0,0,7,0},
-	{0,1,7,0,0,0,0,0,0},
-	{0,0,0,0,3,6,0,4,0}
+mytype_t inter[9][9] = {
+	{5,1,7,6,0,0,0,3,4},
+	{2,8,9,0,0,4,0,0,0},
+	{3,4,6,2,0,5,0,9,0},
+	{6,0,2,0,0,0,0,1,0},
+	{0,3,8,0,0,6,0,4,7},
+	{0,0,0,0,0,0,0,0,0},
+	{0,9,0,0,0,0,0,7,8},
+	{7,0,3,4,0,0,5,6,0},
+	{0,0,0,0,0,0,0,0,0}
+};
+
+mytype_t inter2[9][9] = {
+	{5,1,7,6,0,0,0,3,4},
+	{0,8,9,0,0,4,0,0,0},
+	{3,0,6,2,0,5,0,9,0},
+	{6,0,0,0,0,0,0,1,0},
+	{0,3,0,0,0,6,0,4,7},
+	{0,0,0,0,0,0,0,0,0},
+	{0,9,0,0,0,0,0,7,8},
+	{7,0,3,4,0,0,5,6,0},
+	{0,0,0,0,0,0,0,0,0}
 };
 
 mytype_t diff[9][9] = {
@@ -415,20 +693,43 @@ mytype_t diff[9][9] = {
 	{0,0,0,0,0,9,7,0,0}
 };
 
+mytype_t hard[9][9] = {
+	{8,5,0,0,0,2,4,0,0},
+	{7,2,0,0,0,0,0,0,9},
+	{0,0,4,0,0,0,0,0,0},
+	{0,0,0,1,0,7,0,0,2},
+	{3,0,5,0,0,0,9,0,0},
+	{0,4,0,0,0,0,0,0,0},
+	{0,0,0,0,8,0,0,7,0},
+	{0,1,7,0,0,0,0,0,0},
+	{0,0,0,0,3,6,0,4,0}
+};
 
-// mytype_t inp0_opt[9][9] = {
-// 	{1,7,4,0,9,0,6,0,0},
-// 	{0,0,0,0,3,8,1,5,7},
-// 	{5,3,0,7,0,1,0,0,4},
-// 	{0,0,7,3,4,9,8,0,0},
-// 	{8,4,0,5,0,0,3,6,0},
-// 	{3,0,5,0,0,6,4,7,0},
-// 	{2,8,6,9,0,0,0,0,1},
-// 	{0,0,0,6,2,7,0,3,8},
-// 	{0,5,3,0,8,0,0,9,6}
-// };
+mytype_t easy_opt[9][9] = {
+	{1,7,4,0,9,0,6,0,0},
+	{0,0,0,0,3,8,1,5,7},
+	{5,3,0,7,0,1,0,0,4},
+	{0,0,7,3,4,9,8,0,0},
+	{8,4,0,5,0,0,3,6,0},
+	{3,0,5,0,0,6,4,7,0},
+	{2,8,6,9,0,0,0,0,1},
+	{0,0,0,6,2,7,0,3,8},
+	{0,5,3,0,8,0,0,9,6}
+};
 
-mytype_t inp1_opt[9][9] = {
+mytype_t easy2_opt[9][9] = {
+	{1,0,5,7,0,2,6,3,8},
+	{2,0,0,0,0,6,0,0,5},
+	{0,6,3,8,4,0,2,1,0},
+	{0,5,9,2,0,1,3,8,0},
+	{0,0,2,0,5,8,0,0,9},
+	{7,1,0,0,3,0,5,0,2},
+	{0,0,4,5,6,0,7,2,0},
+	{5,0,0,0,0,4,0,6,3},
+	{3,2,6,1,0,7,0,0,4}
+};
+
+mytype_t inter_opt[9][9] = {
 	{5,1,7,6,0,0,0,3,4},
 	{2,8,9,0,0,4,0,0,0},
 	{3,4,6,2,0,5,0,9,0},
@@ -440,7 +741,7 @@ mytype_t inp1_opt[9][9] = {
 	{0,0,0,0,0,0,0,0,0}
 };
 
-mytype_t inp2_opt[9][9] = {
+mytype_t inter2_opt[9][9] = {
 	{5,1,7,6,0,0,0,3,4},
 	{0,8,9,0,0,4,0,0,0},
 	{3,0,6,2,0,5,0,9,0},
@@ -450,18 +751,6 @@ mytype_t inp2_opt[9][9] = {
 	{0,9,0,0,0,0,0,7,8},
 	{7,0,3,4,0,0,5,6,0},
 	{0,0,0,0,0,0,0,0,0}
-};
-
-mytype_t inp3_opt[9][9] = {
-	{1,0,5,7,0,2,6,3,8},
-	{2,0,0,0,0,6,0,0,5},
-	{0,6,3,8,4,0,2,1,0},
-	{0,5,9,2,0,1,3,8,0},
-	{0,0,2,0,5,8,0,0,9},
-	{7,1,0,0,3,0,5,0,2},
-	{0,0,4,5,6,0,7,2,0},
-	{5,0,0,0,0,4,0,6,3},
-	{3,2,6,1,0,7,0,0,4}
 };
 
 mytype_t hard_opt[9][9] = {
@@ -487,167 +776,3 @@ mytype_t diff_opt[9][9] = {
 	{0,0,4,0,0,0,0,3,0},
 	{0,0,0,0,0,9,7,0,0}
 };
-
-
-
-
-void test()
-{
-		printf("The Sudoku before attempting to solve it:\n");
-	print_grid(inp0);
-
-	if (solve(inp0))
-	{
-		print_grid(inp0);
-		printf("Backtracks: %d\n", backtracks);
-	}
-	else
-		printf("\n\nNO SOLUTION FOUND with the simple algorithm!\n\n");
-	
-	backtracks = 0;
-
-	if (solve_opt(inp0_opt))
-	{
-		print_grid(inp0_opt);
-		printf("Backtracks: %d\n", backtracks);
-	}
-	else
-		printf("\n\nNO SOLUTION FOUND with the optimized algorithm!\n\n");
-
-	backtracks_opt = 0;
-
-
-
-
-	printf("The Sudoku before attempting to solve it:\n");
-	print_grid(inp1);
-
-	if (solve(inp1))
-	{
-		print_grid(inp1);
-		printf("Backtracks: %d\n", backtracks);
-	}
-	else
-		printf("\n\nNO SOLUTION FOUND with the simple algorithm!\n\n");
-	
-	backtracks = 0;
-
-	if (solve_opt(inp1_opt))
-	{
-		print_grid(inp1_opt);
-		printf("Backtracks: %d\n", backtracks);
-	}
-	else
-		printf("\n\nNO SOLUTION FOUND with the optimized algorithm!\n\n");
-
-	backtracks_opt = 0;
-
-
-
-
-
-	printf("The Sudoku before attempting to solve it:\n");
-	print_grid(inp2);
-
-	if (solve(inp2))
-	{
-		print_grid(inp2);
-		printf("Backtracks: %d\n", backtracks);
-	}
-	else
-		printf("\n\nNO SOLUTION FOUND with the simple algorithm!\n\n");
-	
-	backtracks = 0;
-
-	if (solve_opt(inp2_opt))
-	{
-		print_grid(inp2_opt);
-		printf("Backtracks: %d\n", backtracks);
-	}
-	else
-		printf("\n\nNO SOLUTION FOUND with the optimized algorithm!\n\n");
-
-	backtracks_opt = 0;
-
-
-
-
-
-	printf("The Sudoku before attempting to solve it:\n");
-	print_grid(inp3);
-
-	if (solve(inp3))
-	{
-		print_grid(inp3);
-		printf("Backtracks: %d\n", backtracks);
-	}
-	else
-		printf("\n\nNO SOLUTION FOUND with the simple algorithm!\n\n");
-	
-	backtracks = 0;
-
-	if (solve_opt(inp3_opt))
-	{
-		print_grid(inp3_opt);
-		printf("Backtracks: %d\n", backtracks);
-	}
-	else
-		printf("\n\nNO SOLUTION FOUND with the optimized algorithm!\n\n");
-
-	backtracks_opt = 0;
-
-
-
-
-
-
-	printf("The Sudoku before attempting to solve it:\n");
-	print_grid(hard);
-
-	if (solve(hard))
-	{
-		print_grid(hard);
-		printf("Backtracks: %d\n", backtracks);
-	}
-	else
-		printf("\n\nNO SOLUTION FOUND with the simple algorithm!\n\n");
-	
-	backtracks = 0;
-
-	if (solve_opt(hard_opt))
-	{
-		print_grid(hard_opt);
-		printf("Backtracks: %d\n", backtracks);
-	}
-	else
-		printf("\n\nNO SOLUTION FOUND with the optimized algorithm!\n\n");
-
-	backtracks_opt = 0;
-
-
-
-
-
-	printf("The Sudoku before attempting to solve it:\n");
-	print_grid(diff);
-
-	if (solve(diff))
-	{
-		print_grid(diff);
-		printf("Backtracks: %d\n", backtracks);
-	}
-	else
-		printf("\n\nNO SOLUTION FOUND with the simple algorithm!\n\n");
-	
-	backtracks = 0;
-
-	if (solve_opt(diff_opt))
-	{
-		print_grid(diff_opt);
-		printf("Backtracks: %d\n", backtracks);
-	}
-	else
-		printf("\n\nNO SOLUTION FOUND with the optimized algorithm!\n\n");
-
-	backtracks_opt = 0;
-}
