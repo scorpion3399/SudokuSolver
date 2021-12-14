@@ -1,5 +1,6 @@
 *.hex
 *.bin
+*.o
 
 # Debug files
 *.dSYM/
