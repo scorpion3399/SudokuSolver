@@ -95,3 +95,5 @@ report/
 *.gz
 *.toc
 *.out
+solver/solver/2/solverp
+solver/solver/1/solverj
