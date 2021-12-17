@@ -128,3 +128,5 @@ ipch/
 [Rr]eport/*.gz
 # report/*.out # already exists for C compiler executables
 [Rr]eport/*.toc
+solver/solver/2/solverp
+solver/solver/1/solverj
