@@ -50,8 +50,8 @@ volatile uint8_t transm_char;
 
 // Pointers to the next clue that will be
 // sent back to the PC.
-volatile uint8_t row_position = 9;
-volatile uint8_t col_position = 9;
+volatile uint8_t row_position = 1;
+volatile uint8_t col_position = 1;
 // if zero it means the Sudoku is solved
 volatile uint8_t test = 0;
 
@@ -79,6 +79,7 @@ static inline void storeClue();
 static inline void clear_table();
 static inline void play_game();
 static inline void send_table();
+static inline void debug_table();
 static inline void send_response_OK();
 
 // Routines to solve Sudoku
@@ -230,41 +231,6 @@ USART_RXC_vect_RETI:
 	reti();
 }
 
-/**
- * 
- * Subroutine: Interrupt Service Routine transmit
- * 
- * Input: None
- * 
- * Returns: None
- * 
- * Description: This ISR transmits the data in PC.
- * 
- */
-
-ISR(USART_TXC_vect, ISR_NAKED)
-{
-	uint8_t save_sreg = SREG; // Storing the value of status register
-
-	if(transm_cons == transm_prod)
-		goto USART_TXC_vector_RETI;
-
-	// Wait for empty transmit buffer
-	// while ( !( (UCSRA & 0x20) == 0x20) );
-	while ( (UCSRA & 0x20) != 0x20 );
-
-	UDR  = transm_buff[transm_cons++]; // Sending character as a response
-
-	// transm_cons = (transm_cons+1)%BUFSZ; // Increasing the position of pointer in buffer transm_buffer
-
-USART_TXC_vector_RETI:
-
-	SREG = save_sreg; // Loading the value of status register
-
-	reti();
-
-}
-
 
 
 // *********** SUBROUTINES *********** //
@@ -329,6 +295,7 @@ static inline void process()
 	{
 		case 0x41: // 'A', "AT\r\n", sends response "OK\r\n"
 		
+		
 			// uint8_t cmd[3] = {0x54,0x0D,0x0A}; // char cmd[3] = "T\r\n";
 			// cmd bytes are hardcoded because, there can't be a var
 			// definition inside a case. Maybe global or PROGMEM string?
@@ -342,7 +309,7 @@ static inline void process()
 			} else {
 				// Eat everything until an '\LF' is found because the cmd
 				// is not correct.
-				//do { } while ( rcv_buff[++rcv_cons] != 0x0A );
+				//do { } while ( rcv_buff[rcv_cons++] != 0x0D );
 			}
 			break;
 
@@ -352,7 +319,10 @@ static inline void process()
 			if(rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A && rcv_buff[rcv_cons+3] == 0x0D )
 			{
 				rcv_cons += 4;
+				DDRB = 0xFF;
+				PORTB = 0x00;
 				clear_table();
+				PORTB = 0x0F;
 				send_response_OK();
 			}
 
@@ -371,7 +341,20 @@ static inline void process()
 				rcv_cons += 4;
 
 				play_game();
-				send_response_OK();
+				
+				checkSudoku();
+				
+				if(test == 0){
+					
+					transm_char = 0x44;
+					transmit();
+					transm_char = tx_OK[2];
+					transmit();
+					transm_char = tx_OK[3];
+					transmit();
+					
+				}
+				
 			}
 
 			break;
@@ -388,7 +371,7 @@ static inline void process()
 
 				send_table();
 				send_response_OK();
-				if (col_position == 9 && row_position == 9)
+				if (col_position == 1 && row_position == 1)
 				{
 					// store "D\r\n" in the transmit buff
 					transm_char = 0x44;
@@ -401,7 +384,22 @@ static inline void process()
 			}
 
 			break;
+			
+		case 0x42: // 'B' "B\r\n"
 		
+			rcv_cons += 2;
+			send_response_OK();
+
+			break;
+			
+		case 0x44: // 'D' "D\r\n"
+			
+		//debug_table();
+			rcv_cons += 2;
+			send_response_OK();
+			
+			break;
+			
 		default: // no matching cmd, eat bytes
 			
 			//do { } while ( rcv_buff[++rcv_cons] != 0x0A );
@@ -568,11 +566,12 @@ static inline void checkSudoku()
  */
 static inline void clear_table()
 {
-	uint8_t i, j = 0;
+	uint8_t i = 0;
+	uint8_t j = 0;
 	
-	for (i = 8; i >= 0; i--)
+	for (i = 0; i < 9; i++)
 	{
-		for (j = 8; j >= 0; j--)
+		for (j = 0; j < 9; j++)
 		{
 			sudoku[i][j] = 0;
 		}
@@ -599,8 +598,7 @@ static inline void play_game()
 	uint8_t result = solve(sudoku);
 
 	if(result == 1){
-		DDRB = 0xFF;
-		PORTB = 0x00;
+		send_response_OK();
 	}
 
 }
@@ -634,19 +632,59 @@ static inline void send_table()
 	transmit();
 	// Increasing the global positions
 
-	col_position--;
+	col_position++;
 
-	if(col_position == 0)
+	if(col_position == 10)
 	{
-		col_position = 9;
-		row_position--;
+		col_position = 1;
+		row_position++;
 	}
 
-	if(row_position == 0)
+	if(row_position == 10)
 	{
-		row_position = 9;
-		col_position = 9;
+		row_position = 1;
+		col_position = 1;
 	}
+}
+
+/**
+ * 
+ * Subroutine: debug_table
+ * 
+ * Input: None
+ * 
+ * Returns: None
+ * 
+ * Description: This routine sends the value of a cell x,y to PC.
+ * 
+ */
+
+static inline void debug_table(){
+	
+	if (rcv_buff[rcv_cons+3] == 0x0D && rcv_buff[rcv_cons+4] == 0x0A &&  rcv_buff[rcv_cons+5] == 0x0D)
+	{
+		
+	uint8_t x = (rcv_buff[rcv_cons+1] & 0x0F) - 1;
+	uint8_t y = (rcv_buff[rcv_cons+2] & 0x0F) - 1;
+	rcv_cons += 6;
+	
+	transm_char = 0x4E;
+	transmit();
+	transm_char = x;
+	transmit();
+	transm_char = y;
+	transmit();
+	transm_char = sudoku[x][y];
+	transmit();
+	transm_char = 0x0D;
+	transmit();
+	transm_char = 0x0A;
+	transmit();
+	
+	
+	}
+	
+	
 }
 
 /**
