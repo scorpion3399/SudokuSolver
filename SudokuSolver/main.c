@@ -79,6 +79,7 @@ static inline void storeClue();
 static inline void clear_table();
 static inline void play_game();
 static inline void send_table();
+static inline void debug_table();
 static inline void send_response_OK();
 
 // Routines to solve Sudoku
@@ -401,6 +402,23 @@ static inline void process()
 			}
 
 			break;
+			
+		case 0x42: // 'B' "B\r\n"
+			
+			if(rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A && rcv_buff[rcv_cons+3] == 0x0D )
+			{
+				rcv_cons += 4;
+				
+				
+			}
+		
+		
+			break;
+			
+		case 0x44: // 'D' "D\r\n"
+			
+			debug_table();
+			break;
 		
 		default: // no matching cmd, eat bytes
 			
@@ -605,7 +623,6 @@ static inline void play_game()
 
 }
 
-
 /**
  * 
  * Subroutine: send_table
@@ -647,6 +664,46 @@ static inline void send_table()
 		row_position = 9;
 		col_position = 9;
 	}
+}
+
+/**
+ * 
+ * Subroutine: debug_table
+ * 
+ * Input: None
+ * 
+ * Returns: None
+ * 
+ * Description: This routine sends the value of a cell x,y to PC.
+ * 
+ */
+
+static inline void debug_table(){
+	if (rcv_buff[rcv_cons+3] == 0x0D && rcv_buff[rcv_cons+4] == 0x0A &&  rcv_buff[rcv_cons+5] == 0x0D)
+	{
+		
+	uint8_t x = (rcv_buff[++rcv_cons] & 0x0F) - 1;
+	uint8_t y = (rcv_buff[++rcv_cons] & 0x0F) - 1;
+	sudoku[x][y] = (rcv_buff[++rcv_cons] & 0x0F);
+	
+	
+	transm_char = 0x4E;
+	transmit();
+	transm_char = x;
+	transmit();
+	transm_char = y;
+	transmit();
+	transm_char = sudoku[x][y];
+	transmit();
+	transm_char = 0x0D;
+	transmit();
+	transm_char = 0x0A;
+	transmit();
+	
+	
+	}
+	
+	
 }
 
 /**
