@@ -46,7 +46,6 @@ volatile uint8_t rcv_prod = 0;
 volatile uint8_t rcv_cons = 0;
 volatile uint8_t transm_cons = 0;
 volatile uint8_t transm_prod = 0;
-volatile uint8_t transm_char;
 
 // Pointers to the next clue that will be
 // sent back to the PC.
@@ -120,9 +119,9 @@ int main(void)
 	pLedOut = 0xFF; // LEDs off
 
 	// Timer settings
-	//TCCR0 = (1<<CS02); ; // presc val. 256
-	//OCR0 = cMaxCnt; // max tim/cnt0 value 150
-	//TIMSK |= (1<<OCIE0); // enable TIM0_COMP interrupt
+	TCCR0 = (1<<CS02); ; // presc val. 256
+	OCR0 = cMaxCnt; // max tim/cnt0 value 150
+	TIMSK |= (1<<OCIE0); // enable TIM0_COMP interrupt
 
 	// UART init
 	initUART();
@@ -302,12 +301,14 @@ static inline void initUART()
 
 static inline void transmit()
 {
+	if(transm_cons == transm_prod)
+		return;
 
 	// Wait for empty transmit buffer
 	// while ( !( (UCSRA & 0x20) == 0x20) );
 	while ( (UCSRA & 0x20) != 0x20 );
 
-	UDR  = transm_char; // Sending character as a response
+	UDR  = transm_buff[transm_cons++]; // Sending character as a response
 }
 
 
@@ -329,30 +330,32 @@ static inline void process()
 	switch(rcv_buff[rcv_cons])
 	{
 		case 0x41: // 'A', "AT\r\n", sends response "OK\r\n"
-		
+			
 			// uint8_t cmd[3] = {0x54,0x0D,0x0A}; // char cmd[3] = "T\r\n";
 			// cmd bytes are hardcoded because, there can't be a var
 			// definition inside a case. Maybe global or PROGMEM string?
-			if (rcv_buff[rcv_cons+1] == 0x54 && rcv_buff[rcv_cons+2] == 0x0D && rcv_buff[rcv_cons+3] == 0x0A && rcv_buff[rcv_cons+4] == 0x0D )
+			if (rcv_buff[rcv_cons+1] == 0x54 &&
+				rcv_buff[rcv_cons+2] == 0x0D &&
+				rcv_buff[rcv_cons+3] == 0x0A)
 			{   // Update rcv consumer.
-				rcv_cons = rcv_cons + 5; // Update rcv consumer.
-				
+				rcv_cons = rcv_cons + 4;
 				// respond with "OK\CR\LF"
 				send_response_OK();
 
 			} else {
 				// Eat everything until an '\LF' is found because the cmd
 				// is not correct.
-				//do { } while ( rcv_buff[++rcv_cons] != 0x0A );
+				do { } while ( rcv_buff[++rcv_cons] != 0x4A );
 			}
 			break;
 
 		case 0x43: // 'C' "C\r\n"
 		// "C\r\n", clears the Sudoku table and notifies PC ("OK\r\n")
 
-			if(rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A && rcv_buff[rcv_cons+3] == 0x0D )
+			if(rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A)
 			{
-				rcv_cons += 4;
+				rcv_cons += 3;
+
 				clear_table();
 				send_response_OK();
 			}
@@ -362,14 +365,13 @@ static inline void process()
 		case 0x4E: // 'N', "N<x><y><val>\r\n", which stores a clue and returns OK
 			
 			storeClue();
-			
 			break;
 
 		case 0x50: // 'P' "P\r\n"
 
-			if(rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A && rcv_buff[rcv_cons+3] == 0x0D )
+			if(rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A)
 			{
-				rcv_cons += 4;
+				rcv_cons += 3;
 
 				play_game();
 				send_response_OK();
@@ -383,21 +385,19 @@ static inline void process()
 
 		case 0x54: // 'T' "T\r\n"
 
-			if(rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A && rcv_buff[rcv_cons+3] == 0x0D )
+			if(rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A)
 			{
-				rcv_cons += 4;
+				rcv_cons += 3;
 
 				send_table();
 				send_response_OK();
 				if (col_position == 9 && row_position == 9)
 				{
 					// store "D\r\n" in the transmit buff
-					transm_char = 0x44;
-					transmit();
-					transm_char = tx_OK[2];
-					transmit();
-					transm_char = tx_OK[3];
-					transmit();
+					transm_buff[transm_prod] = 0x44;
+					transm_buff[++transm_prod] = tx_OK[2];
+					transm_buff[++transm_prod] = tx_OK[3];
+					transm_prod++;
 				}
 			}
 
@@ -422,10 +422,10 @@ static inline void process()
 		
 		default: // no matching cmd, eat bytes
 			
-			//do { } while ( rcv_buff[++rcv_cons] != 0x0A );
+			do { } while ( rcv_buff[++rcv_cons] != 0x4A );
 			break;
 	}
-
+	transmit();
 }
 
 
@@ -443,25 +443,24 @@ static inline void process()
  */
 static inline void storeClue()
 {
-	if (rcv_buff[rcv_cons+4] == 0x0D && rcv_buff[rcv_cons+5] == 0x0A &&  rcv_buff[rcv_cons+6] == 0x0D)
+	if (rcv_buff[rcv_cons] == 0x54 &&
+		rcv_buff[rcv_cons+4] == 0x0D &&
+		rcv_buff[rcv_cons+5] == 0x0A)
 	{
-		
-		DDRB = 0xFF;
-		PORTB = 0x0F;
 		// array indices are from 0-8, but the cmd indices are from 0x31-0x39
 		// use of postfix is necessary because rcv_cons++ will return 
 		// rcv_buff[rcv_cons] and then increment rcv_cons.
-		uint8_t x = (rcv_buff[++rcv_cons] & 0x0F) - 1;
-		uint8_t y = (rcv_buff[++rcv_cons] & 0x0F) - 1;
-		sudoku[x][y] = (rcv_buff[++rcv_cons] & 0x0F);
+		uint8_t x = (rcv_buff[++rcv_cons] & 0x0F) - 0x31;
+		uint8_t y = (rcv_buff[++rcv_cons] & 0x0F) - 0x31;
+		sudoku[x][y] = (rcv_buff[++rcv_cons] & 0x0F) - 0x30;
 		// Update rcv consumer.
-		rcv_cons= rcv_cons+4;
+		rcv_cons = rcv_cons + 2;
 		// respond with "OK\CR\LF"
 		send_response_OK();
 	} else {
 		// Eat everything until an '\LF' is found because the cmd
 		// is not correct.
-		//do { } while ( rcv_buff[++rcv_cons] != 0x0A );
+		do { } while ( rcv_buff[++rcv_cons] != 0x4A );
 	}
 }
 
@@ -586,19 +585,15 @@ static inline void checkSudoku()
  */
 static inline void clear_table()
 {
-	uint8_t i, j = 0;
-	
-	for (i = 8; i >= 0; i--)
+	for (uint8_t i = 8; i >= 0; i--)
 	{
-		for (j = 8; j >= 0; j--)
+		for (uint8_t j = 8; j >= 0; j--)
 		{
 			sudoku[i][j] = 0;
 		}
-
 	}
-
-
 }
+
 
 /**
  *
@@ -639,16 +634,17 @@ static inline void send_table()
 {
 	// Sending each time a cell in the form N<X><Y><CR><LF>
 
-	transm_char = 0x30+row_position;
-	transmit();
-	transm_char = 0x30+col_position;
-	transmit();
-	transm_char = 0x30+sudoku[row_position-1][col_position-1];
-	transmit();
-	transm_char = 0x0D;
-	transmit();
-	transm_char = 0x0A;
-	transmit();
+	transm_buff[transm_prod] = 0x30+row_position;
+	transm_prod++;
+	transm_buff[transm_prod] = 0x30+col_position;
+	transm_prod++;
+	transm_buff[transm_prod] = 0x30+sudoku[row_position-1][col_position-1];
+	transm_prod++;
+	transm_buff[transm_prod] = 0x0D;
+	transm_prod++;
+	transm_buff[transm_prod] = 0x0A;
+	transm_prod++;
+
 	// Increasing the global positions
 
 	col_position--;
@@ -731,14 +727,11 @@ static inline void send_response_OK()
 	// transm_buff[transm_prod] = tx_OK[3];
 	// transm_prod++;
 
-	transm_char = tx_OK[0];
-	transmit();
-	transm_char = tx_OK[1];
-	transmit();
-	transm_char = tx_OK[2];
-	transmit();
-	transm_char = tx_OK[3];
-	transmit();
+	transm_buff[transm_prod] = tx_OK[0];
+	transm_buff[++transm_prod] = tx_OK[1];
+	transm_buff[++transm_prod] = tx_OK[2];
+	transm_buff[++transm_prod] = tx_OK[3];
+	transm_prod++;
 
 }
 
@@ -775,8 +768,6 @@ mytype_t find_empty_cell(mytype_t puzzle[][9], mytype_t *row, mytype_t *column) 
 	}
 	return 0;
 }
-
-/*
 
 void makeImplications(mytype_t puzzle[][9],mytype_t row,mytype_t col,mytype_t guess,implication* imply){
 
@@ -930,7 +921,6 @@ void undoImplications(mytype_t puzzle[][9],implication* impl){
 
 }
 
-*/
 
 mytype_t solve(mytype_t puzzle[][9]) {
 	
@@ -953,7 +943,7 @@ mytype_t solve(mytype_t puzzle[][9]) {
 }
 
 
-/*
+
 mytype_t solve_opt(mytype_t puzzle[][9]) {
 	mytype_t row;
 	mytype_t column;
@@ -979,7 +969,5 @@ mytype_t solve_opt(mytype_t puzzle[][9]) {
 
 	free(impl);
 	return 0;
-	
 }
-*/
 
