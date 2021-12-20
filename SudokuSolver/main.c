@@ -7,12 +7,10 @@
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdint.h>
+
 
 #ifndef F_CPU
-#define F_CPU 1843200UL
+#define F_CPU 10000000UL
 #endif // F_CPU
 
 #define USART_BAUDRATE 9600
@@ -54,6 +52,8 @@ volatile uint8_t row_position = 1;
 volatile uint8_t col_position = 1;
 // if zero it means the Sudoku is solved
 volatile uint8_t test = 0;
+// if one means the solution of sudoku stopped
+volatile uint8_t stopSolved = 0;
 
 // The Sudoku matrix
 uint8_t sudoku[9][9] = {
@@ -120,9 +120,9 @@ int main(void)
 	pLedOut = 0xFF; // LEDs off
 
 	// Timer settings
-	//TCCR0 = (1<<CS02); ; // presc val. 256
-	//OCR0 = cMaxCnt; // max tim/cnt0 value 150
-	//TIMSK |= (1<<OCIE0); // enable TIM0_COMP interrupt
+	TCCR0 = (1<<CS02)|(1<<CS00); ; // presc val. 256
+	OCR0 = cMaxCnt; // max tim/cnt0 value 150
+	TIMSK |= (1<<OCIE0); // enable TIM0_COMP interrupt
 
 	// UART init
 	initUART();
@@ -159,14 +159,16 @@ ISR(TIMER0_COMP_vect, ISR_NAKED)
 
 	uint8_t cnt_progress = 0; // store the number of unsolved clues
 
-	for (uint8_t r = 8; r >= 0; r--)
+	
+	for (uint8_t r = 0; r < 9; r++)
 	{
-		for (uint8_t c = 8; c >= 0; c--)
-		{
-			if (sudoku[r][c] != 0)
+			for (uint8_t c = 0; c < 9; c++)
+			{
+				if (sudoku[r][c] != 0)
 				cnt_progress++;
-		}
+			}
 	}
+
 
 	cnt_progress = 0.1 * cnt_progress; // cnt_progress / 10
 	// Refresh screen
@@ -214,17 +216,6 @@ ISR(USART_RXC_vect, ISR_NAKED)
 //  ++rcv_prod;
 	rcv_buff[rcv_prod++] = UDR; // works iff BUFSZ == UINT8_MAX+1
 
-/*  // This code will trigger the Timer2 Comp intrpt. It will only happen
-	// on buffer overflow. Until everything works this is disabled.
-	goto USART_RXC_vect_RETI;
-	
-USART_RXC_vect_TRIG:
-	trigger it
-	sei();
-	TCNT2 = MaxCnt;
-	_NOP();
-	cli();
-*/
 USART_RXC_vect_RETI:
 	SREG = save_sreg;
 
@@ -299,24 +290,41 @@ static inline void process()
 			// uint8_t cmd[3] = {0x54,0x0D,0x0A}; // char cmd[3] = "T\r\n";
 			// cmd bytes are hardcoded because, there can't be a var
 			// definition inside a case. Maybe global or PROGMEM string?
-			if (rcv_buff[rcv_cons+1] == 0x54 && rcv_buff[rcv_cons+2] == 0x0D && rcv_buff[rcv_cons+3] == 0x0A && rcv_buff[rcv_cons+4] == 0x0D )
+			if (rcv_buff[rcv_cons+1] == 0x54 && rcv_buff[rcv_cons+2] == 0x0D && rcv_buff[rcv_cons+3] == 0x0A && rcv_buff[rcv_cons+4] == 0x0D)
+			//if (rcv_buff[rcv_cons+1] == 0x54 && rcv_buff[rcv_cons+2] == 0x0D && rcv_buff[rcv_cons+3] == 0x0A)
+
 			{   // Update rcv consumer.
 				rcv_cons = rcv_cons + 5; // Update rcv consumer.
+				DDRB = 0xFF;
+				PORTB = 0x0F;
 				
 				// respond with "OK\CR\LF"
 				send_response_OK();
 
 			} else {
+				
 				// Eat everything until an '\LF' is found because the cmd
 				// is not correct.
 				//do { } while ( rcv_buff[rcv_cons++] != 0x0D );
+					/*while ( rcv_prod - rcv_cons != 0){
+						if(rcv_buff[rcv_cons] == 0x0D && rcv_buff[rcv_cons+1] == 0x0A && rcv_buff[rcv_cons+2] == 0x0D)
+						rcv_cons += 3;
+						
+						else if(rcv_buff[rcv_cons] == 0x0D)
+						rcv_cons++;
+						else
+						rcv_cons++;
+						
+					}
+					*/
 			}
 			break;
-
+			
 		case 0x43: // 'C' "C\r\n"
 		// "C\r\n", clears the Sudoku table and notifies PC ("OK\r\n")
 
-			if(rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A && rcv_buff[rcv_cons+3] == 0x0D )
+			if(rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A && rcv_buff[rcv_cons+3] == 0x0D)
+			//if(rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A)
 			{
 				rcv_cons += 4;
 				DDRB = 0xFF;
@@ -327,24 +335,30 @@ static inline void process()
 			}
 
 			break;
-
+	
 		case 0x4E: // 'N', "N<x><y><val>\r\n", which stores a clue and returns OK
 			
-			storeClue();
+			 if (rcv_buff[rcv_cons+4] == 0x0D && rcv_buff[rcv_cons+5] == 0x0A &&  rcv_buff[rcv_cons+6] == 0x0D)
+			 //if (rcv_buff[rcv_cons+4] == 0x0D && rcv_buff[rcv_cons+5] == 0x0A)
+			 {
+				
+				storeClue();
+			 }
 			
 			break;
 
 		case 0x50: // 'P' "P\r\n"
 
 			if(rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A && rcv_buff[rcv_cons+3] == 0x0D )
+			//if(rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A)
 			{
 				rcv_cons += 4;
 
 				play_game();
+				stopSolved = 0;
+				//checkSudoku();
 				
-				checkSudoku();
-				
-				if(test == 0){
+				//if(test == 0){
 					
 					transm_char = 0x44;
 					transmit();
@@ -353,19 +367,26 @@ static inline void process()
 					transm_char = tx_OK[3];
 					transmit();
 					
-				}
+				//}
 				
 			}
 
 			break;
 
 		case 0x53: // 'S', "S\r\n", check if the Sudoku is correctly solved.
-			checkSudoku();
+			
+			if (rcv_buff[rcv_cons+1] == 0x0D &&	rcv_buff[rcv_cons+2] == 0x0A && rcv_buff[rcv_cons+3] == 0x0D)
+			//if (rcv_buff[rcv_cons+1] == 0x0D &&	rcv_buff[rcv_cons+2] == 0x0A )
+			{
+				checkSudoku();
+			}
+			
 			break;
 
 		case 0x54: // 'T' "T\r\n"
 
 			if(rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A && rcv_buff[rcv_cons+3] == 0x0D )
+			//if(rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A)
 			{
 				rcv_cons += 4;
 
@@ -384,25 +405,11 @@ static inline void process()
 			}
 
 			break;
-			
-		case 0x42: // 'B' "B\r\n"
-		
-			rcv_cons += 2;
-			send_response_OK();
-
-			break;
-			
-		case 0x44: // 'D' "D\r\n"
-			
-		//debug_table();
-			rcv_cons += 2;
-			send_response_OK();
-			
-			break;
-			
+	
 		default: // no matching cmd, eat bytes
+			//rcv_cons++;
 			
-			//do { } while ( rcv_buff[++rcv_cons] != 0x0A );
+			
 			break;
 	}
 
@@ -423,9 +430,7 @@ static inline void process()
  */
 static inline void storeClue()
 {
-	if (rcv_buff[rcv_cons+4] == 0x0D && rcv_buff[rcv_cons+5] == 0x0A &&  rcv_buff[rcv_cons+6] == 0x0D)
-	{
-		
+	
 		DDRB = 0xFF;
 		PORTB = 0x0F;
 		// array indices are from 0-8, but the cmd indices are from 0x31-0x39
@@ -438,11 +443,7 @@ static inline void storeClue()
 		rcv_cons= rcv_cons+4;
 		// respond with "OK\CR\LF"
 		send_response_OK();
-	} else {
-		// Eat everything until an '\LF' is found because the cmd
-		// is not correct.
-		//do { } while ( rcv_buff[++rcv_cons] != 0x0A );
-	}
+	
 }
 
 
@@ -461,9 +462,7 @@ static inline void storeClue()
 static inline void checkSudoku()
 {
 	// first check that the cmd is correct (ends in \r\n in this case)
-	if (rcv_buff[rcv_cons+1] == 0x0D &&
-		rcv_buff[rcv_cons+2] == 0x0A)
-	{
+	
 		uint8_t checksum[9] = {1,2,3,4,5,6,7,8,9};
 		uint8_t i, j = 0; // uint8_t i = 0; uint8_t j = 0;
 
@@ -549,7 +548,7 @@ static inline void checkSudoku()
 				}
 			}
 		}
-	}
+	
 }
 
 
@@ -914,6 +913,9 @@ void undoImplications(mytype_t puzzle[][9],implication* impl){
 */
 
 mytype_t solve(mytype_t puzzle[][9]) {
+	
+	//if(stopSolved == 1)
+	//return 0;
 	
 	mytype_t row, column;
 
