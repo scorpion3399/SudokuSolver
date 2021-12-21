@@ -18,26 +18,16 @@
 #define BAUD_PRESCALE F_CPU/16/USART_BAUDRATE - 1
 #define BUFSZ 256
 
-#define NLeds 8 // num of LEDs, for the progess of the solver
 #define cMaxCnt 151-1 // Max Timer/Counter0 val.
 // #define cMaxCnt2 151-1 // Max Timer/Counter2 val.
 #define pLedOut PORTA
 #define pLedDdr DDRA
 
-//Definig type and struct for sudoku 
-#define mytype_t uint8_t
-
-#define _NOP() do { __asm__ __volatile__ ("nop"); } while (0)
-// used for a very short delay
-
 // This must hold:  UINT8_MAX + 1 is evenly divisible by BUFSZ
 // Otherwise, the producers and consumers do not work correctly.
 uint8_t rcv_buff[BUFSZ];
-uint8_t transm_buff[BUFSZ];
 volatile uint8_t rcv_prod = 0;
 volatile uint8_t rcv_cons = 0;
-volatile uint8_t transm_cons = 0;
-volatile uint8_t transm_prod = 0;
 volatile uint8_t transm_char;
 
 // Pointers to the next clue that will be
@@ -48,25 +38,25 @@ volatile uint8_t col_position = 1;
 volatile uint8_t stopSolved = 0;
 
 typedef struct implications {
-	mytype_t x;
-	mytype_t y;
-	mytype_t possible_clues[9];
+	uint8_t x;
+	uint8_t y;
+	uint8_t possible_clues[9];
 } implication;
 
 // The Sudoku matrix
 uint8_t sudoku[9][9] = {
-	{0,0,5,3,0,0,0,0,0},
-	{8,0,0,0,0,0,0,2,0},
-	{0,7,0,0,1,0,5,0,0},
-	{4,0,0,0,0,5,3,0,0},
-	{0,1,0,0,7,0,0,0,6},
-	{0,0,3,2,0,0,0,8,0},
-	{0,6,0,5,0,0,0,0,9},
-	{0,0,4,0,0,0,0,3,0},
-	{0,0,0,0,0,9,7,0,0}
+	{8,5,0,0,0,2,4,0,0},
+	{7,2,0,0,0,0,0,0,9},
+	{0,0,4,0,0,0,0,0,0},
+	{0,0,0,1,0,7,0,0,2},
+	{3,0,5,0,0,0,9,0,0},
+	{0,4,0,0,0,0,0,0,0},
+	{0,0,0,0,8,0,0,7,0},
+	{0,1,7,0,0,0,0,0,0},
+	{0,0,0,0,3,6,0,4,0}
 };
 
-mytype_t sectors[9][4] = {
+uint8_t sectors[9][4] = {
 	{0, 3, 0, 3},{3, 6, 0, 3}, {6, 9, 0, 3},
 	{0, 3, 3, 6}, {3, 6, 3, 6}, {6, 9, 3, 6},
 	{0, 3, 6, 9}, {3, 6, 6, 9}, {6, 9, 6, 9}
@@ -74,8 +64,6 @@ mytype_t sectors[9][4] = {
 
 // constants
 const uint8_t tx_OK[4] = {0x4F,0x4B,0x0D,0x0A};
-	
-char bt_str[8];
 
 // Subroutines
  void initUART();
@@ -89,12 +77,13 @@ char bt_str[8];
  void send_response_OK();
 
 // Routines to solve Sudoku
-mytype_t valid(mytype_t, mytype_t, mytype_t);
-mytype_t solve_opt();
-mytype_t find_empty_cell(mytype_t *, mytype_t *);
-void makeImplications(mytype_t row,mytype_t col,mytype_t guess,implication* imply);
-mytype_t count_elements(mytype_t array[9],mytype_t* element);
-void undoImplications(implication* impl);
+uint8_t valid(uint8_t, uint8_t, uint8_t);
+uint8_t solve();
+uint8_t solve_opt();
+uint8_t find_empty_cell(uint8_t *, uint8_t *);
+void makeImplications(uint8_t ,uint8_t ,uint8_t ,implication*);
+uint8_t count_elements(uint8_t[9],uint8_t*);
+void undoImplications(implication* );
 
 //Variables for sudoku
 int backtracks = 0;
@@ -153,9 +142,9 @@ int main(void)
  * Description: This ISR displays the progress of the sudoku solver in the LED00-LED07.
  * 
  */
-ISR(TIMER0_COMP_vect, ISR_NAKED)
+ISR(TIMER0_COMP_vect)
 {
-	uint8_t save_sreg = SREG; // save SREG
+	//uint8_t save_sreg = SREG; // save SREG
 
 	uint8_t cnt_progress = 0; // store the number of unsolved clues
 	
@@ -164,7 +153,7 @@ ISR(TIMER0_COMP_vect, ISR_NAKED)
 		for (uint8_t c = 0; c < 9; c++)
 		{
 			if (sudoku[r][c] != 0)
-				cnt_progress++;
+			cnt_progress++;
 		}
 	}
 
@@ -182,11 +171,10 @@ ISR(TIMER0_COMP_vect, ISR_NAKED)
 	
 	TCNT0 = 0; // reset TCNT0
 	
-	SREG = save_sreg; // restore SREG
+	//SREG = save_sreg; // restore SREG
 	
-	reti(); // return from interrupt
+	//reti(); // return from interrupt
 }
-
 
 /**
  * 
@@ -200,24 +188,29 @@ ISR(TIMER0_COMP_vect, ISR_NAKED)
  * 
  */
 
-ISR(USART_RXC_vect, ISR_NAKED)
+ISR(USART_RXC_vect)
 {
-	uint8_t save_sreg = SREG;
 
 	// If BUFSZ is reached we have to process some data before we
 	// receive new. So reti and possibly trigger the process intrpt.
 	// Change to USART_RXC_vect_TRIG to trigger intrpt.
 	if (rcv_prod - rcv_cons == BUFSZ)
-		goto USART_RXC_vect_RETI;
+		reti();
 
 //  rcv_buff[rcv_prod%BUFSZ] = UDR;
 //  ++rcv_prod;
 	rcv_buff[rcv_prod++] = UDR; // works iff BUFSZ == UINT8_MAX+1
+	
+		// 'B' "B\r\n"
+		if(rcv_buff[rcv_cons] == 0x42 && rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A && rcv_buff[rcv_cons+3] == 0x0D )
+		{
+			rcv_cons += 4;
+			stopSolved = 1;
+			row_position =1;
+			col_position =1;
+			send_response_OK();
+		}
 
-USART_RXC_vect_RETI:
-	SREG = save_sreg;
-
-	reti();
 }
 
 
@@ -279,7 +272,8 @@ USART_RXC_vect_RETI:
  * 
  */
  void process()
-{
+{		
+			// "AT\r\n"
 			if (rcv_buff[rcv_cons] == 0x41  && rcv_buff[rcv_cons+1] == 0x54 && rcv_buff[rcv_cons+2] == 0x0D && rcv_buff[rcv_cons+3] == 0x0A && rcv_buff[rcv_cons+4] == 0x0D)
 			{  
 				rcv_cons = rcv_cons + 5; // Update rcv consumer.	
@@ -309,15 +303,20 @@ USART_RXC_vect_RETI:
 			// 'P' "P\r\n"
 			else if(rcv_buff[rcv_cons] == 0x50 && rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A && rcv_buff[rcv_cons+3] == 0x0D )
 			{
-				play_game();
 				rcv_cons += 4;
+				play_game();
+				
 				stopSolved = 0;
+
 			}
 			
 			 // 'S', "S\r\n", check if the Sudoku is correctly solved.
 			else if (rcv_buff[rcv_cons] == 0x53 && rcv_buff[rcv_cons+1] == 0x0D &&	rcv_buff[rcv_cons+2] == 0x0A && rcv_buff[rcv_cons+3] == 0x0D)
 			{
-				checkSudoku();
+				row_position =1;
+				col_position =1;
+				send_table();
+				rcv_cons += 4;
 				
 			}
 
@@ -339,13 +338,7 @@ USART_RXC_vect_RETI:
 				}
 			}
 			
-			// 'B' "B\r\n"
-			else if(rcv_buff[rcv_cons] == 0x42 && rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A && rcv_buff[rcv_cons+3] == 0x0D )
-			{
-				rcv_cons += 4;
-				stopSolved = 1;
-				send_response_OK();
-			}
+		
 			
 			// 'D' "D\r\n"
 			else if(rcv_buff[rcv_cons] == 0x44 && rcv_buff[rcv_cons+3] == 0x0D && rcv_buff[rcv_cons+4] == 0x0A && rcv_buff[rcv_cons+5] == 0x0D )
@@ -491,15 +484,15 @@ USART_RXC_vect_RETI:
 
  void play_game()
 {
-	solve_opt();
+	solve();
 	backtracks = 0;
 
 // 	if(result == 1){
 // 	
 // 	}
+	send_response_OK();
 	
 	if(checkSudoku() == 0){
-		send_response_OK();
 		transm_char = 0x44;
 		transmit();
 		transm_char = tx_OK[2];
@@ -616,12 +609,12 @@ USART_RXC_vect_RETI:
 
 // Sudoku solving Routines
 
-mytype_t valid( mytype_t row, mytype_t column, mytype_t guess)
+uint8_t valid( uint8_t row, uint8_t column, uint8_t guess)
 {
-	mytype_t corner_x = row / 3 * 3;
-	mytype_t corner_y = column / 3 * 3;
+	uint8_t corner_x = row / 3 * 3;
+	uint8_t corner_y = column / 3 * 3;
 
-	for (mytype_t x = 0; x < 9; ++x)
+	for (uint8_t x = 0; x < 9; ++x)
 	{
 		if (sudoku[row][x] == guess) return 0;
 		if (sudoku[x][column] == guess) return 0;
@@ -630,11 +623,11 @@ mytype_t valid( mytype_t row, mytype_t column, mytype_t guess)
 	return 1;
 }
 
-mytype_t find_empty_cell(mytype_t *row, mytype_t *column)
+uint8_t find_empty_cell(uint8_t *row, uint8_t *column)
 {
-	for (mytype_t x = 0; x < 9; x++)
+	for (uint8_t x = 0; x < 9; x++)
 	{
-		for (mytype_t y = 0; y < 9; y++)
+		for (uint8_t y = 0; y < 9; y++)
 		{
 			if (!sudoku[x][y])
 			{
@@ -648,218 +641,220 @@ mytype_t find_empty_cell(mytype_t *row, mytype_t *column)
 	return 0;
 }
 
-// mytype_t solve()
-// {
-// 	
-// 	//if(stopSolved == 1)
-// 	//return 0;
-// 	
-// 	mytype_t row, column, guess;
-// 
-// 	if (find_empty_cell(&row, &column) == 0) return 1;
-// 
-// 	for (guess = 1; guess < 10; guess++)
-// 	{
-// 		if (valid(row, column, guess))
-// 		{
-// 			sudoku[row][column] = guess;
-// 
-// 			if (solve()) return 1;
-// 
-// 			backtracks++;
-// 			sudoku[row][column] = 0;
-// 		}
-// 	}
-// 
-// 	return 0;
-// }
-
-
-void makeImplications(mytype_t row,mytype_t col,mytype_t guess,implication* imply){
-
-	imply[position].x = row;
-	imply[position].y = col;
-	imply[position].possible_clues[0] = guess;
-	position++;
-
-	sudoku[row][col] = guess;
-	mytype_t index = 0;
-	
-	mytype_t value;
-
-	mytype_t possible_clues[9];
-	implication impl[9];
-
-	// Removing clues from possible clues which has already been in the ith sector with clue (row,col)
-
-	for(mytype_t i = 0;i < 9;i++){
-
-		possible_clues[0] = 1;
-		possible_clues[1] = 2;
-		possible_clues[2] = 3;
-		possible_clues[3] = 4;
-		possible_clues[4] = 5;
-		possible_clues[5] = 6;
-		possible_clues[6] = 7;
-		possible_clues[7] = 8;
-		possible_clues[8] = 9;
-
-		for(mytype_t x = sectors[i][0];x < sectors[i][1];x++){
-
-			for(mytype_t y = sectors[i][2];y < sectors[i][3];y++){
-
-				if(sudoku[x][y] != 0)
-				//remove_element(possible_clues,puzzle[x][y]);
-				// Removing element puzzle[x][y] from possibles_clues
-				for(mytype_t m = 0;m < 9;m++){
-
-					if(possible_clues[m] == sudoku[x][y])
-					possible_clues[m] = 0;
-				}
-
-				
-			}
-
-		}
-
-
-
-		// Setting the possible clues for each clue (x,y) in the ith sector
-		index = 0;
-		for(mytype_t x = sectors[i][0];x < sectors[i][1];x++){
-
-			for(mytype_t y = sectors[i][2];y < sectors[i][3];y++){
-
-				if(sudoku[x][y] == 0){
-					// store the tuple in x,y, elements
-					impl[index].x = x;
-					impl[index].y = y;
-					//array_copy(impl[index].possible_clues,possible_clues);
-					for(mytype_t m = 0;m < 9;m++){
-						//if(possible_clues[m] != 0)
-						impl[index].possible_clues[m] = possible_clues[m];
-					}
-
-					index++;
-				}
-			}
-
-		}
-		// For each sector
-		
-		for(mytype_t j = 0; j < index; j++){
-
-			// Finding the set of clues on the row corresponding to j clue in  ith sector
-			// and removing them from the set of possible clues of implication
-			
-			for(mytype_t y = 0; y < 9;y++){
-
-				//	if(find_element(impl[j].possible_clues,puzzle[impl[j].x][y]))
-				//	remove_element(impl[j].possible_clues,puzzle[impl[j].x][y]);
-
-				for(mytype_t m = 0;m < 9;m++){
-
-					if(impl[j].possible_clues[m] == sudoku[impl[j].x][y])
-					impl[j].possible_clues[m] = 0;
-				}
-
-
-
-			}
-
-			// Finding the set of clues on the column corresponding to j clue in  ith sector
-			// and removing them from the set of possible clues of implication
-			
-			for(mytype_t x = 0; x < 9;x++){
-
-				//if(find_element(impl[j].possible_clues,puzzle[x][impl[j].y]))
-				//remove_element(impl[j].possible_clues,puzzle[x][impl[j].y]);
-
-				for(mytype_t m = 0;m < 9;m++){
-
-					if(impl[j].possible_clues[m] == sudoku[x][impl[j].y])
-					impl[j].possible_clues[m] = 0;
-				}
-
-
-				
-			}
-
-			// Check if in the set of possible values there is only one clue
-
-			if(count_elements(impl[j].possible_clues,&value) == 1)
-			if(valid(impl[j].x, impl[j].y, value)){
-				sudoku[impl[j].x][impl[j].y] = value;
-				imply[position].x = impl[j].x;
-				imply[position].y = impl[j].y;
-				imply[position].possible_clues[0] =value;
-				position++;
-			}
-		}
-	}
-
-}
-
-mytype_t count_elements(mytype_t array[9],mytype_t* element){
-
-	mytype_t counter = 0;
-
-	for(mytype_t i = 0;i < 9;i++){
-
-		if(array[i] != 0 ){
-			counter++;
-			*element = array[i];
-		}
-	}
-
-	return counter;
-}
-
-
-void undoImplications(implication* impl){
-
-	for(mytype_t i = 0;i < 81;i++){
-
-		sudoku[impl[i].x][impl[i].y] = 0;
-
-	}
-
-
-}
-
-mytype_t solve_opt() 
+uint8_t solve()
 {
-	mytype_t row;
-	mytype_t column;
+	
+	if(stopSolved == 1)
+		return -1;
+	
+	uint8_t row, column, guess,retv;
 
-	implication* impl = malloc(440);
+	if (find_empty_cell(&row, &column) == 0) return 1;
 
-	if(!find_empty_cell(&row, &column)) return 1;
-
-	for (mytype_t guess = 1; guess < 10; guess++)
+	for (guess = 1; guess < 10; guess++)
 	{
 		if (valid(row, column, guess))
 		{
-			if(impl != NULL)
-			{
-				makeImplications(row, column, guess, impl);
-				if (solve_opt()) return 1;
-				backtracks_opt++;
-				undoImplications(impl);
-			} else {
-				sudoku[row][column] = guess;				
-				
-				if (solve_opt()) return 1;
+			sudoku[row][column] = guess;
+			
+			retv = solve();
+			if (retv == 1) return 1;
+			else if(retv == -1) return -1;
 
-				backtracks_opt++;
-				sudoku[row][column] = 0;
-			}
+			backtracks++;
+			sudoku[row][column] = 0;
 		}
 	}
 
-	if (impl != NULL) free(impl);
-	
 	return 0;
-	
 }
+
+
+// void makeImplications(uint8_t row,uint8_t col,uint8_t guess,implication* imply){
+// 
+// 	imply[position].x = row;
+// 	imply[position].y = col;
+// 	imply[position].possible_clues[0] = guess;
+// 	position++;
+// 
+// 	sudoku[row][col] = guess;
+// 	uint8_t index = 0;
+// 	
+// 	uint8_t value;
+// 
+// 	uint8_t possible_clues[9];
+// 	implication impl[9];
+// 
+// 	// Removing clues from possible clues which has already been in the ith sector with clue (row,col)
+// 
+// 	for(uint8_t i = 0;i < 9;i++){
+// 
+// 		possible_clues[0] = 1;
+// 		possible_clues[1] = 2;
+// 		possible_clues[2] = 3;
+// 		possible_clues[3] = 4;
+// 		possible_clues[4] = 5;
+// 		possible_clues[5] = 6;
+// 		possible_clues[6] = 7;
+// 		possible_clues[7] = 8;
+// 		possible_clues[8] = 9;
+// 
+// 		for(uint8_t x = sectors[i][0];x < sectors[i][1];x++){
+// 
+// 			for(uint8_t y = sectors[i][2];y < sectors[i][3];y++){
+// 
+// 				if(sudoku[x][y] != 0)
+// 				//remove_element(possible_clues,puzzle[x][y]);
+// 				// Removing element puzzle[x][y] from possibles_clues
+// 					for(uint8_t m = 0;m < 9;m++){
+// 
+// 						if(possible_clues[m] == sudoku[x][y])
+// 							possible_clues[m] = 0;
+// 					}
+// 
+// 				
+// 			}
+// 
+// 		}
+// 
+// 
+// 
+// 		// Setting the possible clues for each clue (x,y) in the ith sector
+// 		index = 0;
+// 		for(uint8_t x = sectors[i][0];x < sectors[i][1];x++){
+// 
+// 			for(uint8_t y = sectors[i][2];y < sectors[i][3];y++){
+// 
+// 				if(sudoku[x][y] == 0){
+// 					// store the tuple in x,y, elements
+// 					impl[index].x = x;
+// 					impl[index].y = y;
+// 					//array_copy(impl[index].possible_clues,possible_clues);
+// 					for(uint8_t m = 0;m < 9;m++){
+// 						//if(possible_clues[m] != 0)
+// 						impl[index].possible_clues[m] = possible_clues[m];
+// 					}
+// 
+// 					index++;
+// 				}
+// 			}
+// 
+// 		}
+// 		// For each sector
+// 		
+// 		for(uint8_t j = 0; j < index; j++){
+// 
+// 			// Finding the set of clues on the row corresponding to j clue in  ith sector
+// 			// and removing them from the set of possible clues of implication
+// 			
+// 			for(uint8_t y = 0; y < 9;y++){
+// 
+// 				//	if(find_element(impl[j].possible_clues,puzzle[impl[j].x][y]))
+// 				//	remove_element(impl[j].possible_clues,puzzle[impl[j].x][y]);
+// 
+// 				for(uint8_t m = 0;m < 9;m++){
+// 
+// 					if(impl[j].possible_clues[m] == sudoku[impl[j].x][y])
+// 						impl[j].possible_clues[m] = 0;
+// 				}
+// 
+// 
+// 
+// 			}
+// 
+// 			// Finding the set of clues on the column corresponding to j clue in  ith sector
+// 			// and removing them from the set of possible clues of implication
+// 			
+// 			for(uint8_t x = 0; x < 9;x++){
+// 
+// 				//if(find_element(impl[j].possible_clues,puzzle[x][impl[j].y]))
+// 				//remove_element(impl[j].possible_clues,puzzle[x][impl[j].y]);
+// 
+// 				for(uint8_t m = 0;m < 9;m++){
+// 
+// 					if(impl[j].possible_clues[m] == sudoku[x][impl[j].y])
+// 						impl[j].possible_clues[m] = 0;
+// 				}
+// 
+// 
+// 				
+// 			}
+// 
+// 			// Check if in the set of possible values there is only one clue
+// 
+// 			if(count_elements(impl[j].possible_clues,&value) == 1)
+// 				if(valid(impl[j].x, impl[j].y, value)){
+// 					sudoku[impl[j].x][impl[j].y] = value;
+// 					imply[position].x = impl[j].x;
+// 					imply[position].y = impl[j].y;
+// 					imply[position].possible_clues[0] =value;
+// 					position++;
+// 				}
+// 		}
+// 	}
+// 
+// }
+// 
+// uint8_t count_elements(uint8_t array[9],uint8_t* element){
+// 
+// 	uint8_t counter = 0;
+// 
+// 	for(uint8_t i = 0;i < 9;i++){
+// 
+// 		if(array[i] != 0 ){
+// 			counter++;
+// 			*element = array[i];
+// 		}
+// 	}
+// 
+// 	return counter;
+// }
+// 
+// 
+// void undoImplications(implication* impl){
+// 
+// 	for(uint8_t i = 0;i < 81;i++){
+// 
+// 		sudoku[impl[i].x][impl[i].y] = 0;
+// 
+// 	}
+// 
+// 
+// }
+// 
+// uint8_t solve_opt() 
+// {
+// 	uint8_t row;
+// 	uint8_t column;
+// 
+// 	implication* impl = malloc(440);
+// 
+// 	if(!find_empty_cell(&row, &column)) return 1;
+// 
+// 	for (uint8_t guess = 1; guess < 10; guess++)
+// 	{
+// 		if (valid(row, column, guess))
+// 		{
+// 			if(impl != NULL)
+// 			{
+// 				makeImplications(row, column, guess, impl);
+// 				if (solve_opt()) return 1;
+// 				backtracks_opt++;
+// 				undoImplications(impl);
+// 			} else {
+// 				sudoku[row][column] = guess;				
+// 				
+// 				if (solve_opt()) return 1;
+// 
+// 				backtracks_opt++;
+// 				sudoku[row][column] = 0;
+// 			}
+// 		}
+// 	}
+// 
+// 	if (impl != NULL) free(impl);
+// 	
+// 	return 0;
+// 	
+// }
 
