@@ -12,6 +12,7 @@
 
 #ifndef F_CPU
 #define F_CPU 10000000UL
+//#define F_CPU 1843200UL
 #endif // F_CPU
 
 #define USART_BAUDRATE 9600
@@ -196,18 +197,7 @@ ISR(USART_RXC_vect)
 //  ++rcv_prod;
 	rcv_buff[rcv_prod++] = UDR; // works iff BUFSZ == UINT8_MAX+1
 	
-		// "B\r\n\r", stops solving the Sudoku and stop the transmission of clues.
-		// The latter can be translated to "reset the counters that transmit the table"
-		// so that when a new T instruction comes, it starts from the beginning.
-		if(rcv_buff[rcv_cons] == 0x42 && rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A)
-		{
-			rcv_cons += 3;// Update rcv consumer.
-			stopSolved = 1;
-			row_position =1;
-			col_position =1;
-			//rcv_cons++;
-			send_response_OK();// respond with "OK\CR\LF"
-		}
+		
 
 }
 
@@ -309,7 +299,7 @@ ISR(USART_RXC_vect)
 				play_game();// solves the Sudoku
 
 				stopSolved = 0;// reset stopSolved, so that next time that a board is loaded and starts
-				// the solver, it is not stopped (unless explicitly specified).
+							   // the solver, it is not stopped (unless explicitly specified).
 
 			}
 			
@@ -330,20 +320,21 @@ ISR(USART_RXC_vect)
 				send_table();
 				rcv_cons += 3;// Update rcv consumer.
 				//rcv_cons++;
-				send_response_OK();
-				if (col_position == 1 && row_position == 1)
-				{
-					// store "D\r\n" in the transmit buff
-					transm_char = 0x44;
-					transmit();
-					transm_char = tx_OK[2];
-					transmit();
-					transm_char = tx_OK[3];
-					transmit();
-				}
+
 			}
 			
-		
+			// "B\r\n\r", stops solving the Sudoku and stop the transmission of clues.
+			// The latter can be translated to "reset the counters that transmit the table"
+			// so that when a new T instruction comes, it starts from the beginning.
+			else if(rcv_buff[rcv_cons] == 0x42 && rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A)
+			{
+				rcv_cons += 3;// Update rcv consumer.
+				stopSolved = 1;
+				row_position =1;
+				col_position =1;
+				//rcv_cons++;
+				send_response_OK();// respond with "OK\CR\LF"
+			}
 			
 			// "D<x><y>\r\n\r", sends the data in sudoku[<x>-1][<y>-1] by returning N<x><y><val>\r\n
 			else if(rcv_buff[rcv_cons] == 0x44 && rcv_buff[rcv_cons+3] == 0x0D && rcv_buff[rcv_cons+4] == 0x0A )
