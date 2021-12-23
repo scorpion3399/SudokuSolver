@@ -37,20 +37,23 @@ volatile uint8_t col_position = 1;
 // if one means the solution of sudoku stopped
 volatile uint8_t stopSolved = 0;
 
+/*
 typedef struct implications {
 	uint8_t x;
 	uint8_t y;
 	uint8_t possible_clues[9];
 } implication;
 
-// The Sudoku matrix
-uint8_t sudoku[9][9] = {};
 
 uint8_t sectors[9][4] = {
 	{0, 3, 0, 3},{3, 6, 0, 3}, {6, 9, 0, 3},
 	{0, 3, 3, 6}, {3, 6, 3, 6}, {6, 9, 3, 6},
 	{0, 3, 6, 9}, {3, 6, 6, 9}, {6, 9, 6, 9}
 };
+
+*/
+// The Sudoku matrix
+uint8_t sudoku[9][9] = {};
 
 // constants
 const uint8_t tx_OK[4] = {0x4F,0x4B,0x0D,0x0A};
@@ -71,20 +74,22 @@ uint8_t valid(uint8_t, uint8_t, uint8_t);
 uint8_t solve();
 uint8_t solve_opt();
 uint8_t find_empty_cell(uint8_t *, uint8_t *);
+
+/*
 void makeImplications(uint8_t ,uint8_t ,uint8_t ,implication*);
 uint8_t count_elements(uint8_t[9],uint8_t*);
 void undoImplications(implication* );
+*/
 
 //Variables for sudoku
 int backtracks = 0;
-int backtracks_opt = 0;
+//int backtracks_opt = 0;
 
 int position = 0;
 
 // Interrupt Service routines
 void TIMER0_COMP_vect();
 void USART_RXC_vect();
-void USART_TXC_vect();
 
 
 int main(void)
@@ -196,11 +201,12 @@ ISR(USART_RXC_vect)
 		// so that when a new T instruction comes, it starts from the beginning.
 		if(rcv_buff[rcv_cons] == 0x42 && rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A)
 		{
-			rcv_cons += 3;
+			rcv_cons += 3;// Update rcv consumer.
 			stopSolved = 1;
 			row_position =1;
 			col_position =1;
-			send_response_OK();
+			//rcv_cons++;
+			send_response_OK();// respond with "OK\CR\LF"
 		}
 
 }
@@ -243,7 +249,7 @@ ISR(USART_RXC_vect)
 {
 
 	// Wait for empty transmit buffer
-	// while ( !( (UCSRA & 0x20) == 0x20) );
+	//while ( !( (UCSRA & 0x20) == 0x20) );
 	while ( (UCSRA & 0x20) != 0x20 );
 
 	UDR  = transm_char; // Sending character as a response
@@ -297,6 +303,7 @@ ISR(USART_RXC_vect)
 			// "P\r\n\r", solves the Sudoku and notifies PC ("OK\r\n") when it is done.
 			else if(rcv_buff[rcv_cons] == 0x50 && rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A)
 			{
+				
 				rcv_cons += 3;// Update rcv consumer.
 				//rcv_cons++;
 				play_game();// solves the Sudoku
@@ -312,7 +319,7 @@ ISR(USART_RXC_vect)
 				row_position =1;
 				col_position =1;
 				send_table();
-				rcv_cons += 3;
+				rcv_cons += 3;// Update rcv consumer.
 				//rcv_cons++;
 				
 			}
@@ -321,7 +328,7 @@ ISR(USART_RXC_vect)
 			else if(rcv_buff[rcv_cons] == 0x54 && rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A)
 			{
 				send_table();
-				rcv_cons += 3;
+				rcv_cons += 3;// Update rcv consumer.
 				//rcv_cons++;
 				send_response_OK();
 				if (col_position == 1 && row_position == 1)
@@ -342,7 +349,7 @@ ISR(USART_RXC_vect)
 			else if(rcv_buff[rcv_cons] == 0x44 && rcv_buff[rcv_cons+3] == 0x0D && rcv_buff[rcv_cons+4] == 0x0A )
 			{
 				debug_table();
-				rcv_cons += 5;
+				rcv_cons += 5;// Update rcv consumer.
 				//rcv_cons++;
 			}
 
@@ -365,9 +372,6 @@ ISR(USART_RXC_vect)
  */
  void storeClue()
 {
-	
-		DDRB = 0xFF;
-		PORTB = 0x0F;
 		// array indices are from 0-8, but the cmd indices are from 0x31-0x39
 		// use of postfix is necessary because rcv_cons++ will return 
 		// rcv_buff[rcv_cons] and then increment rcv_cons.
