@@ -195,19 +195,19 @@ ISR(USART_RXC_vect)
 //  rcv_buff[rcv_prod%BUFSZ] = UDR;
 //  ++rcv_prod;
 	rcv_buff[rcv_prod++] = UDR; // works iff BUFSZ == UINT8_MAX+1
-	
-		// "B\r\n\r", stops solving the Sudoku and stop the transmission of clues.
-		// The latter can be translated to "reset the counters that transmit the table"
-		// so that when a new T instruction comes, it starts from the beginning.
-		if(rcv_buff[rcv_cons] == 0x42 && rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A)
-		{
-			rcv_cons += 3;// Update rcv consumer.
-			stopSolved = 1;
-			row_position =1;
-			col_position =1;
-			//rcv_cons++;
-			send_response_OK();// respond with "OK\CR\LF"
-		}
+
+	// "B\r\n\r", stops solving the Sudoku and stop the transmission of clues.
+	// The latter can be translated to "reset the counters that transmit the table"
+	// so that when a new T instruction comes, it starts from the beginning.
+	if(rcv_buff[rcv_cons] == 0x42 && rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A)
+	{
+		rcv_cons += 3;// Update rcv consumer.
+		stopSolved = 1;
+		row_position =1;
+		col_position =1;
+		//rcv_cons++;
+		send_response_OK();// respond with "OK\CR\LF"
+	}
 
 }
 
@@ -271,89 +271,85 @@ ISR(USART_RXC_vect)
  */
  void process()
 {		
-			// "AT\r\n"
-			if (rcv_buff[rcv_cons] == 0x41  && rcv_buff[rcv_cons+1] == 0x54 && rcv_buff[rcv_cons+2] == 0x0D && rcv_buff[rcv_cons+3] == 0x0A )
-			{  
-				rcv_cons = rcv_cons + 4; // Update rcv consumer.	
-				// respond with "OK\CR\LF"
-				send_response_OK();
-				//rcv_cons++;
+	// "AT\r\n"
+	if (rcv_buff[rcv_cons] == 0x41  && rcv_buff[rcv_cons+1] == 0x54 && rcv_buff[rcv_cons+2] == 0x0D && rcv_buff[rcv_cons+3] == 0x0A )
+	{  
+		rcv_cons = rcv_cons + 4; // Update rcv consumer.	
+		// respond with "OK\CR\LF"
+		send_response_OK();
+		//rcv_cons++;
 
-			} 
-			
-		// "C\r\n", clears the Sudoku table and notifies PC ("OK\r\n")// "C\r\n\r", clears the Sudoku table and notifies PC ("OK\r\n") when it is done.
-			else if(rcv_buff[rcv_cons] == 0x43 && rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A )
-			{
-				clear_table();
-				rcv_cons += 3;// Update rcv consumer.
-				// respond with "OK\CR\LF"
-				send_response_OK();
-				//rcv_cons++;
-			}
+	} 
 	
-			// "N<x><y><val>\r\n\r", stores <val> in sudoku[<x>-1][<y>-1] and notifies PC ("OK\r\n") when it is done.
-			else if (rcv_buff[rcv_cons] == 0x4E && rcv_buff[rcv_cons+4] == 0x0D && rcv_buff[rcv_cons+5] == 0x0A)
-			 {
-				storeClue(); // stores the clue and partially updates the rcv_cons (by 2 positions).
-				rcv_cons= rcv_cons+3;// Update rcv consumer.
-				//rcv_cons++;
-				send_response_OK();// respond with "OK\CR\LF"
-			 }
-			 
-			// "P\r\n\r", solves the Sudoku and notifies PC ("OK\r\n") when it is done.
-			else if(rcv_buff[rcv_cons] == 0x50 && rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A)
-			{
-				
-				rcv_cons += 3;// Update rcv consumer.
-				//rcv_cons++;
-				play_game();// solves the Sudoku
+	// "C\r\n", clears the Sudoku table and notifies PC ("OK\r\n")// "C\r\n\r", clears the Sudoku table and notifies PC ("OK\r\n") when it is done.
+	else if(rcv_buff[rcv_cons] == 0x43 && rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A )
+	{
+		clear_table();
+		rcv_cons += 3;// Update rcv consumer.
+		// respond with "OK\CR\LF"
+		send_response_OK();
+		//rcv_cons++;
+	}
 
-				stopSolved = 0;// reset stopSolved, so that next time that a board is loaded and starts
-				// the solver, it is not stopped (unless explicitly specified).
-
-			}
-			
-			// "S\r\n\r", checks if the Sudoku is correctly solved.
-			else if (rcv_buff[rcv_cons] == 0x53 && rcv_buff[rcv_cons+1] == 0x0D &&	rcv_buff[rcv_cons+2] == 0x0A)
-			{
-				row_position =1;
-				col_position =1;
-				send_table();
-				rcv_cons += 3;// Update rcv consumer.
-				//rcv_cons++;
-				
-			}
-
-			// "T\r\n\r", sends the next clue in sudoku by returning N<x><y><val>\r\n
-			else if(rcv_buff[rcv_cons] == 0x54 && rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A)
-			{
-				send_table();
-				rcv_cons += 3;// Update rcv consumer.
-				//rcv_cons++;
-				send_response_OK();
-				if (col_position == 1 && row_position == 1)
-				{
-					// store "D\r\n" in the transmit buff
-					transm_char = 0x44;
-					transmit();
-					transm_char = tx_OK[2];
-					transmit();
-					transm_char = tx_OK[3];
-					transmit();
-				}
-			}
-			
+	// "N<x><y><val>\r\n\r", stores <val> in sudoku[<x>-1][<y>-1] and notifies PC ("OK\r\n") when it is done.
+	else if (rcv_buff[rcv_cons] == 0x4E && rcv_buff[rcv_cons+4] == 0x0D && rcv_buff[rcv_cons+5] == 0x0A)
+	 {
+		storeClue(); // stores the clue and partially updates the rcv_cons (by 2 positions).
+		rcv_cons= rcv_cons+3;// Update rcv consumer.
+		//rcv_cons++;
+		send_response_OK();// respond with "OK\CR\LF"
+	 }
+	 
+	// "P\r\n\r", solves the Sudoku and notifies PC ("OK\r\n") when it is done.
+	else if(rcv_buff[rcv_cons] == 0x50 && rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A)
+	{
 		
-			
-			// "D<x><y>\r\n\r", sends the data in sudoku[<x>-1][<y>-1] by returning N<x><y><val>\r\n
-			else if(rcv_buff[rcv_cons] == 0x44 && rcv_buff[rcv_cons+3] == 0x0D && rcv_buff[rcv_cons+4] == 0x0A )
-			{
-				debug_table();
-				rcv_cons += 5;// Update rcv consumer.
-				//rcv_cons++;
-			}
+		rcv_cons += 3;// Update rcv consumer.
+		//rcv_cons++;
+		play_game();// solves the Sudoku
 
+		stopSolved = 0;// reset stopSolved, so that next time that a board is loaded and starts
+		// the solver, it is not stopped (unless explicitly specified).
 
+	}
+	
+	// "S\r\n\r", checks if the Sudoku is correctly solved.
+	else if (rcv_buff[rcv_cons] == 0x53 && rcv_buff[rcv_cons+1] == 0x0D &&	rcv_buff[rcv_cons+2] == 0x0A)
+	{
+		row_position =1;
+		col_position =1;
+		send_table();
+		rcv_cons += 3;// Update rcv consumer.
+		//rcv_cons++;
+		
+	}
+
+	// "T\r\n\r", sends the next clue in sudoku by returning N<x><y><val>\r\n
+	else if(rcv_buff[rcv_cons] == 0x54 && rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A)
+	{
+		send_table();
+		rcv_cons += 3;// Update rcv consumer.
+		//rcv_cons++;
+		send_response_OK();
+		if (col_position == 1 && row_position == 1)
+		{
+			// store "D\r\n" in the transmit buff
+			transm_char = 0x44;
+			transmit();
+			transm_char = tx_OK[2];
+			transmit();
+			transm_char = tx_OK[3];
+			transmit();
+		}
+	}
+	
+	// "D<x><y>\r\n\r", sends the data in sudoku[<x>-1][<y>-1] by returning N<x><y><val>\r\n
+	else if(rcv_buff[rcv_cons] == 0x44 && rcv_buff[rcv_cons+3] == 0x0D && rcv_buff[rcv_cons+4] == 0x0A )
+	{
+		debug_table();
+		rcv_cons += 5;// Update rcv consumer.
+		//rcv_cons++;
+	}
 
 }
 
