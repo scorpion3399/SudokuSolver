@@ -35,7 +35,8 @@ volatile uint8_t transm_char;
 // sent back to the PC.
 volatile uint8_t row_position = 1;
 volatile uint8_t col_position = 1;
-// if one means the solution of sudoku stopped
+// if one it means the solution of the sudoku is stopped
+// and the transmission positions are reset
 volatile uint8_t stopSolved = 0;
 
 /*
@@ -51,8 +52,8 @@ uint8_t sectors[9][4] = {
 	{0, 3, 3, 6}, {3, 6, 3, 6}, {6, 9, 3, 6},
 	{0, 3, 6, 9}, {3, 6, 6, 9}, {6, 9, 6, 9}
 };
-
 */
+
 // The Sudoku matrix
 uint8_t sudoku[9][9] = {};
 
@@ -60,15 +61,15 @@ uint8_t sudoku[9][9] = {};
 const uint8_t tx_OK[4] = {0x4F,0x4B,0x0D,0x0A};
 
 // Subroutines
- void initUART();
- void process();
- uint8_t checkSudoku();
- void storeClue();
- void clear_table();
- void play_game();
- void send_table();
- void debug_table();
- void send_response_OK();
+void initUART();
+void process();
+uint8_t checkSudoku();
+void storeClue();
+void clear_table();
+void play_game();
+void send_table();
+void debug_table();
+void send_response_OK();
 
 // Routines to solve Sudoku
 uint8_t valid(uint8_t, uint8_t, uint8_t);
@@ -198,12 +199,12 @@ ISR(USART_RXC_vect)
 	// "B\r\n\r", stops solving the Sudoku and stop the transmission of clues.
 	// The latter can be translated to "reset the counters that transmit the table"
 	// so that when a new T instruction comes, it starts from the beginning.
-	if(rcv_buff[rcv_cons] == 0x42 && rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A)
+	if (rcv_buff[rcv_cons] == 0x42 && rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A)
 	{
 		rcv_cons += 3;// Update rcv consumer.
 		stopSolved = 1;
-		row_position =1;
-		col_position =1;
+		row_position =1 ;
+		col_position = 1;
 		//rcv_cons++;
 		send_response_OK();// respond with "OK\CR\LF"
 	}
@@ -226,7 +227,7 @@ ISR(USART_RXC_vect)
  * Description: To begin UART reception and transmission.
  * 
  */
- void initUART()
+void initUART()
 {
 	// Load upper 8-bits of the baud rate value into
 	// the high byte of the UBRR register
@@ -244,7 +245,7 @@ ISR(USART_RXC_vect)
 
 
 
- void transmit()
+void transmit()
 {
 	while ( (UCSRA & 0x20) != 0x20 ); // Wait for empty transmit buffer
 	UDR  = transm_char; // Sending character as a response
@@ -264,7 +265,7 @@ ISR(USART_RXC_vect)
  * Description: To process commands.
  * 
  */
- void process()
+void process()
 {
 	// "AT\r\n"
 	if (rcv_buff[rcv_cons] == 0x41  && rcv_buff[rcv_cons+1] == 0x54 && rcv_buff[rcv_cons+2] == 0x0D && rcv_buff[rcv_cons+3] == 0x0A )
@@ -321,19 +322,6 @@ ISR(USART_RXC_vect)
 		send_table();
 		rcv_cons += 3;// Update rcv consumer.
 		//rcv_cons++;
-	}
-
-	// "B\r\n\r", stops solving the Sudoku and stop the transmission of clues.
-	// The latter can be translated to "reset the counters that transmit the table"
-	// so that when a new T instruction comes, it starts from the beginning.
-	else if (rcv_buff[rcv_cons] == 0x42 && rcv_buff[rcv_cons+1] == 0x0D && rcv_buff[rcv_cons+2] == 0x0A)
-	{
-		rcv_cons += 3;// Update rcv consumer.
-		stopSolved = 1;
-		row_position =1;
-		col_position =1;
-		//rcv_cons++;
-		send_response_OK();// respond with "OK\CR\LF"
 	}
 
 	// "D<x><y>\r\n\r", sends the data in sudoku[<x>-1][<y>-1] by returning N<x><y><val>\r\n
@@ -444,20 +432,15 @@ ISR(USART_RXC_vect)
  */
  void clear_table()
 {
-	
 	for (uint8_t i = 0; i < 9; i++)
 	{
 		for (uint8_t j = 0; j < 9; j++)
 		{
 			sudoku[i][j] = 0;
-			 
-
 		}
-
 	}
-
-
 }
+
 
 /**
  *
@@ -470,8 +453,7 @@ ISR(USART_RXC_vect)
  * Description: 
  * 
  */
-
- void play_game()
+void play_game()
 {
 	solve();
 	backtracks = 0;
@@ -501,11 +483,12 @@ ISR(USART_RXC_vect)
  * Description: This routine sends the solution of sudoku as table in PC.
  * 
  */
-
- void send_table()
+void send_table()
 {
 	// Sending each time a cell in the form N<X><Y><CR><LF>
 
+	transm_char = 0x4E;
+	transmit();
 	transm_char = 0x30+row_position;
 	transmit();
 	transm_char = 0x30+col_position;
@@ -533,6 +516,7 @@ ISR(USART_RXC_vect)
 	}
 }
 
+
 /**
  * 
  * Subroutine: debug_table
@@ -544,12 +528,11 @@ ISR(USART_RXC_vect)
  * Description: This routine sends the value of a cell x,y to PC.
  * 
  */
-
- void debug_table()
- {
+void debug_table()
+{
 	uint8_t x = (rcv_buff[rcv_cons+1] & 0x0F);
 	uint8_t y = (rcv_buff[rcv_cons+2] & 0x0F);
-	
+
 	transm_char = 0x4E;
 	transmit();
 	transm_char = 0x30+x;
@@ -564,6 +547,7 @@ ISR(USART_RXC_vect)
 	transmit();
 }
 
+
 /**
  * 
  * Subroutine: send_response_OK
@@ -577,8 +561,7 @@ ISR(USART_RXC_vect)
  * the command has being executed successfully.
  * 
  */
-
- void send_response_OK()
+void send_response_OK()
 {
 	transm_char = tx_OK[0];
 	transmit();
@@ -628,7 +611,6 @@ uint8_t find_empty_cell(uint8_t *row, uint8_t *column)
 
 uint8_t solve()
 {
-	
 	if(stopSolved == 1)
 		return -1;
 	

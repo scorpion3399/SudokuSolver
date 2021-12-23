@@ -245,7 +245,9 @@ int solve_opt(int puzzle[9][9])
 	implication* impl = malloc(10000);
 
 	if (impl == NULL)
-		return 0;
+	{
+		error_and_exit();
+	}
 
 
 	if (find_empty_cell(puzzle, &row, &column) == 0)
