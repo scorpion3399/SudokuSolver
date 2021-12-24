@@ -4,6 +4,17 @@
 \contentsline {section}{\numberline {3}Περιγραφή της υλοποίησης}{2}{section.3}%
 \contentsline {subsection}{\numberline {3.1}Σειριακή Θύρα RS232}{2}{subsection.3.1}%
 \contentsline {subsection}{\numberline {3.2}Επεξεργασία των εντολών}{3}{subsection.3.2}%
-\contentsline {subsection}{\numberline {3.3}Αλγόριθμός Επίλυσης Sudoku}{3}{subsection.3.3}%
-\contentsline {subsection}{\numberline {3.4}Οθόνη - Progress Bar}{4}{subsection.3.4}%
-\contentsline {section}{\numberline {4}Έλεγχος σωστής λειτουργίας}{5}{section.4}%
+\contentsline {subsection}{\numberline {3.3}Αλγόριθμός επίλυσης Sudoku}{4}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}Οθόνη - Progress Bar}{5}{subsection.3.4}%
+\contentsline {section}{\numberline {4}Χρήση της μνήμης}{5}{section.4}%
+\contentsline {section}{\numberline {5}Έλεγχος σωστής λειτουργίας - Αποτελέσματα}{6}{section.5}%
+\contentsline {section}{\numberline {6}Συμπεράσματα}{7}{section.6}%
+\contentsline {section}{\numberline {7}Παράρτημα A - Τα Sudoku παζλ που χρησιμοποιήθηκαν}{8}{section.7}%
+\contentsline {subsection}{\numberline {7.1}easy puzzle}{8}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}easy2 puzzle}{8}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}inter puzzle}{9}{subsection.7.3}%
+\contentsline {subsection}{\numberline {7.4}inter2 puzzle}{9}{subsection.7.4}%
+\contentsline {subsection}{\numberline {7.5}diff puzzle}{10}{subsection.7.5}%
+\contentsline {subsection}{\numberline {7.6}hard puzzle}{10}{subsection.7.6}%
+\contentsline {section}{\numberline {8}Παράρτημα B - Ανάλυση και απόδοση βελτιστοποιημένου αλγορίθμου}{10}{section.8}%
+\contentsline {section}{\numberline {9}Παράρτημα Γ - Flowcharts}{11}{section.9}%

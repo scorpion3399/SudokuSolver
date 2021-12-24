@@ -1,0 +1,206 @@
+\documentclass[a4paper,12pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[greek,english]{babel}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{alphabeta}
+\usepackage{lmodern}
+\usepackage{textcomp}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage[hidelinks]{hyperref}
+\usepackage{tabularx}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{listings}
+\usepackage{graphicx}
+\usepackage{float}
+\graphicspath{{figures/}} % Path to images
+
+
+%%% Font of characters %%
+%\usepackage{fontspec}
+%\setmainfont{cmun}[
+%  Extension=.otf,
+%  UprightFont=*rm,
+%  ItalicFont=*ti,
+%  BoldFont=*bx,
+%  BoldItalicFont=*bi,
+%]
+%\setsansfont{cmun}[
+%  Extension=.otf,
+%  UprightFont=*ss,
+%  ItalicFont=*si,
+%  BoldFont=*sx,
+%  BoldItalicFont=*so,
+%]
+%\setmonofont{cmun}[
+%  Extension=.otf,
+%  UprightFont=*btl,% light version
+%  ItalicFont=*bto,%  light version
+%  BoldFont=*tb,
+%  BoldItalicFont=*tx,
+%]
+
+%\geometry{
+%a4paper,
+%width=170mm,
+%top=25mm,
+%bottom=25mm
+%}
+
+% \input{avrListing.tex}
+
+% \lstdefinestyle{ListingSample}{
+% 	basicstyle=\small\ttfamily,
+% 	numbers=none,
+% 	keywordstyle=\color{blue}\bfseries,
+% 	morekeywords={begin,end,for,maxint,to,do},
+% 	% pos=l,
+% }
+
+\setlength\parindent{0pt} % Removes all indentation from paragraphs
+
+\newcommand{\HRule}{\rule{\linewidth}{0.5mm}}
+
+%----------------------------------------------------------------------------------------
+% DOCUMENT INFORMATION
+%----------------------------------------------------------------------------------------
+
+\begin{document}
+
+\input{titlepage}
+
+\newpage
+\tableofcontents
+\newpage
+
+\section{Εισαγωγή}
+Σκοπός του Project είναι η επίλυση ενός παιχνιδιού Sudoku (9x9 πλέγμα) χρησιμοποιώντας έναν μικροελεγκτή AVR. Η διεπαφή του μικροελεγκτή με τον εξωτερικό κόσμο υλοποιείται με χρήση της σειριακής θύρας RS232 και με τη χρήση του τερματικού προγραμμάτος putty.
+
+\section{Τεχνολογία}
+Για την υλοποίηση του project χρησιμοποιήθηκε η πλακέτα STK500 με τον μικροελεγκτή ATmega16L με συχνότητα ρολογιού 10MHz (εξωτερικός κρύσταλλος). Τα μοντέλα του μικροελεκτή και του κρυστάλλου τηρούν προδιαγραφές οι οποίες είναι κοινές για όλες τις ομάδες. Η συγγραφή του κώδικα πραγματοποιήθηκε στη γλώσσα C με τον avr-gcc compiler, ενώ για την προσομοίωση του κώδικα χρησιμοποιήθηκε η πλατφόρμα Microchip Studio. Για την επικοινωνία της πλακέτα με τον εξωτερικό κόσμο χρησιμοποιήθηκε ένα καλώδιο USB σε Serial RS232 (βύσμα DB9).   
+
+
+\section{Περιγραφή της υλοποίησης}
+Το πρότζεκτ αποτελείται απο 4 μέρη τα οποία είναι η διεπαφή της σειριακής θύρας, η επεξεργασία των εντολών, ο αλγόριθμος επίλυσης του Sudoku και η οθόνη, η οποία εμφανίζει τη πρόοδο επίλυσης του Sudoku. 
+
+\subsection{Σειριακή Θύρα RS232}
+Η επικοινωνία του μικροελεγκτή με το χρήστη επιτυγχάνεται μέσω της σειριακής θύρας ορίζοντας τις παραμέτρους της έτσι ώστε να τηρούν τις προδιαγραφές:\\
+\begin{itemize}
+	\item BAUD rate 9600 bps
+	\item 8 data bits
+	\item No parity
+	\item 1 stop bit
+\end{itemize}
+
+Για το σετάρισμα του BAUD rate στην τιμή 9600 φορρτώθηκε στον 16-bit καταχωρητή UBRR η τιμή $F\_CPU/16/USART\_BAUDRATE - 1  = 10 * 10^6 / 16 / 9600 - 1 = 64.10$, το οποίο απλοποιείται στο 64 (ο UBRR δέχεται ακέραιες τιμές).
+
+Στη συνέχεια, ενεργοποιείται η λήψη και η μετάδοση δεδομένων μέσω των flags RXEN και TXEN του UCSRB. Τα interrupt flags τόσο της λήψης όσο και της μετάδοσης, ενεργοποιούνται προκειμένου ο μικροελεγκτής να λαμβάνει και να μεταδίδει δεδομένα με χρήση interrupts αντί για polling. Το τελευταίο δεν προτιμήθηκε λόγω χαμηλότερης απόδοσης.
+
+Τέλος, για την ρύθμιση 8 data bits, αρχικά ενεργοποιείται ο UCSRC (ίδιος με τον UBRRH) με το URSEL bit και τίθενται τα UCSZ0 και UCSZ1 στην τιμή 1. Για τη ρύθμιση του parity και του stop bit, δεν απαιτείται κάποια ενέργεια καθώς είναι αυτόματα ρυθμισένα στην επιθυμητή τιμή (0).
+
+
+\lstinputlisting[label=code:initUART, language=C, firstline=251, lastline=265, tabsize=2, caption=Κώδικας αρχικοποίησης UART]{main.c}
+
+\subsection{Επεξεργασία των εντολών}
+Οι εντολές που υποστηρίζει το ενσωματώμενο σύστημα παρατίθενται στο Table~\ref{table:commands}. Οι εντολές εκτελούνται στο main loop όταν καλείται η συνάρτηση process(). Σε αυτή αρχικά διαβάζεται ο receive buffer και αποκωδικοποείται μία νέα εντολή, εφόσον υπάρχει. Στη συνέχεια εκτελείται η αντίστοιχη ενέργεια και γράφεται στον transmit buffer η αντίστοιχη απάντηση ώστε να μεταδοθεί μέσω τής UART\textunderscore TXC ISR.
+
+
+\begin{table}[h!]
+\centering
+\begin{tabular}[c]{| p{0.3\textwidth} | p{0.3\textwidth} | p{0.3\textwidth} |}
+\hline
+\textbf{Εντολή από PC ή AVR} & \textbf{Ενέργεια εντολής} & \textbf{Απάντηση προς PC ή AVR} \\
+\hline
+"\textbf{AT}\textbackslash r\textbackslash n" (Από PC) & Έναρξη επικοινωνίας με τον AVR & "\textbf{OK}\textbackslash r\textbackslash n" (Προς AVR)\\
+\hline
+"\textbf{C}\textbackslash r\textbackslash n" (Από PC) & Καθαρισμός πίνακα και οθόνης  & "\textbf{OK}\textbackslash r\textbackslash n" (Προς AVR)\\
+\hline
+"\textbf{N}XYVAL\textbackslash r\textbackslash n" (Από PC) &  Τιμή κελιού (VAL) sudoku[Χ][Υ], Χ,Υ $\in$ [1,9] & "\textbf{OK}\textbackslash r\textbackslash n" (Προς AVR)\\
+\hline
+"\textbf{P}\textbackslash r\textbackslash n" (Από PC) & Ξεκινάει να παίζει-λύνει το παιχνίδι & "\textbf{OK}\textbackslash r\textbackslash n" (Προς AVR)\\
+\hline
+"\textbf{S}\textbackslash r\textbackslash n" (Από PC) & Ρωτάει τον AVR αν τέλειωσε η λύση του Sudoku  & "\textbf{D}\textbackslash r\textbackslash n" αν έχει τελειώσει (Προς AVR)\\
+\hline
+"\textbf{T}\textbackslash r\textbackslash n" (Από PC) & Στέλνει τμές κελιών στο PC, μία τιμή κάθε φορά που λαμβάνει αυτή την εντολή & "\textbf{N}XYVAL\textbackslash r\textbackslash n" (Προς AVR)\\
+\hline
+"\textbf{D}\textbackslash r\textbackslash n" (Από AVR) & Ρωτάει τον AVR αν του έστειλε όλα τα δεδομένα & "\textbf{OK}\textbackslash r\textbackslash n" (Προς PC)\\
+\hline
+"\textbf{B}\textbackslash r\textbackslash n" (Από PC) & Σταμάτησε τους υπολογισμούς ή τη μετάδοση αποτελεσμάτων (warm start) & "\textbf{OK}\textbackslash r\textbackslash n" (Προς AVR)\\
+\hline
+"\textbf{D}XYVAL\textbackslash r\textbackslash n" (Από PC) & Στέλνει τα περιεχόμενα του κελιού sudoku[X][Y] & "\textbf{N}XYVAL\textbackslash r\textbackslash n" (Προς AVR)\\
+\hline
+\end{tabular}
+\renewcommand{\arraystretch}{1.2}
+\caption{Σετ εντολών}
+\label{table:commands}
+\end{table}
+
+
+\subsection{Αλγόριθμός Επίλυσης Sudoku}
+Η επίλυση του Sudoku θα πραγματοποιηθεί σε μεταγενέστερο χρόνο χρησιμοποιώντας έναν άλγόριθμο οποίος και θα αποφασίστει με βάση την απόδοση του.
+
+\subsection{Οθόνη - Progress Bar}
+Για την απεικόνιση της προόδου επίλυσης του Sudoku χρησιμοποιήθηκαν τα LEDs κοινής ανόδου (CA) της πλακέτας. Συγκεκριμένα κατά τη διάρκεια επίλυσης του Sudoku πραγματοποιείται περιοδικά έλεγχος σχετικά με το πόσα κελιά του πίνακα είναι συμπληρωμένα, με βάση αυτόν τον αριθμό ανάβει ο ανάλογος αριθμός LEDs (Table~\ref{table:progress_bar}).
+Για την υλοποίηση της περιοδικής ανανέωσης των LEDs χρησιμοποιήθηκε ο Timer 0 σε λειτουργία compare θέτωντας το καταχωρητή OCR0 στη τιμή 150 κατά την αρχικοποίηση του Timer 0. Ο prescaler τέθηκε στην τιμή 256 θέτωντας στο καταχωρητή TCCR0 το bit CS02 ίσο με 1. Η τιμή του OCR0 και του prescaler ενδέχεται να αλλάξουν καθώς δεν έχει ελεγχθει πάνω στη πλακέτα ο ρυθμός ανανέωσης των LEDs και η επίδραση στην απόδοση της επίλυσης του Sudoku.
+
+\begin{table}[h!]
+\centering
+\begin{tabular}[c]{| c | c |}
+\hline
+LEDs & Clues found \\
+\hline
+LEDs off & $< 10$ \\
+\hline
+LED00 &  $\geq 10$ \\
+\hline
+LED00-01 & $\geq 20$ \\
+\hline
+LED00-02 & $\geq 30$ \\
+\hline
+LED00-03 & $\geq 40$ \\
+\hline
+LED00-04 & $\geq 50$ \\
+\hline
+LED00-05 & $\geq 60$ \\
+\hline
+LED00-06 & $\geq 70$ \\
+\hline
+LED00-07 & $\geq 80$ \\
+\hline
+\end{tabular}
+% \renewcommand{\arraystretch}{1.2}
+\caption{Progress Bar}
+\label{table:progress_bar}
+\end{table}
+
+
+
+% \subsection{Αλλαγές σε σχέση με το Εργαστήριο 3}
+
+
+% \begin{figure}[h!]
+% \centering
+% \includegraphics[scale=0.75]{lab5_flo.png}
+% \caption{Ροοδιάγραμμα του προγράμματος.}
+% \end{figure}
+
+
+\section{Έλεγχος σωστής λειτουργίας}
+Η σωστή λειτουργία του συστήματος ελέγθηκε για κάθε υποσύστημα ξεχωριστά. 
+
+Η επιβεβαίωση της ορθής λειτουργίας τόσο της σειριακής θύρας όσο και της εκτέλεσης των εντολών ΔΕΝ κατέστη δυνατή. Αυτό συνέβη καθώς η αναπτυξιακή πλακέτα STK500 η οποία μας δόθηκε είχε πρόβλημα στη μετάδοση δεδομένων πίσω στο PC.
+
+Η διαπίστωση του προβλήμστος της πλάκετας έγινε δυνατή με τη χρήση πλάκετας άλλης ομάδας. Συγκεκριμένα ανατπύχθηκε ένα απλό πρόγραμμα το οποίο επιτρέφει στον αποστολέα τους χαρατκήρες που του έστειλε. Στη δική μας πλακέτα αυτό που επέστρεφε το πρόγραμμα ήταν σκουπίδια ενώ στη πλακέτα της άλλης όμάδας επιστρέφονταν οι χαρασκτήρες που είχαν μεταδοθεί. Επίσης διαπιστώθηκε ότι το καλώδιο δεν ήταν αυτός ή αιτία του προβλήματος χρησιμοποιώντας το καλώδιο της άλλης ομάδας. 
+
+Η απεικόνιση της προόδου λειτούργησε κατόπιν πολλαπλών ελέγχων πάνω στη πλακέτα κάθως τόσο τα LEDs όσο και το PORT A λειουργούσαν ορθά.  
+
+
+
+% \section{Συμπεράσματα}
+
+
+\end{document}
